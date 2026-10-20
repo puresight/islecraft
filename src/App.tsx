@@ -1,0 +1,189 @@
+import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC } from '@/types/game';
+import { advanceTurn, TurnReport } from '@/game/turnEngine';
+import { Hud } from '@/components/Hud';
+import { BoardGrid } from '@/components/BoardGrid';
+import { PortraitOverlay } from '@/components/PortraitOverlay';
+import { BottomDock } from '@/components/BottomDock';
+import { db, saveActiveGame, recordMatchOutcome } from '@/db/gameDatabase';
+import { createInitialGameState } from '@/game/initialState';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+
+export default function App() {
+  const [tab, setTab] = useState<'construct' | 'launch' | 'status'>('construct');
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
+  const [lastReport, setLastReport] = useState<TurnReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [game, setGame] = useState<GameStateSnapshot | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const gameRef = useRef<GameStateSnapshot | null>(null);
+  gameRef.current = game;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await db.activeGame.toCollection().first();
+      if (cancelled) return;
+      if (saved) {
+        setGame(saved);
+      } else {
+        const fresh = createInitialGameState();
+        await db.activeGame.put(fresh);
+        setGame(fresh);
+      }
+      setIsHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persist = useCallback(async (mutator: (state: GameStateSnapshot) => GameStateSnapshot) => {
+    const current = gameRef.current;
+    if (!current) return;
+    const next = mutator(current);
+    gameRef.current = next;
+    setGame(next);
+    await saveActiveGame(next);
+  }, []);
+
+  async function handleBuild(type: BuildingType, col: number, row: number) {
+    if (!game) return;
+    const spec = BUILDING_SPEC[type];
+    if (game.economy.treasurySats < spec.costSats) return;
+    await persist((state) => ({
+      ...state,
+      buildings: [
+        ...state.buildings,
+        {
+          id: `bld_${Math.random().toString(36).slice(2, 9)}`,
+          type,
+          faction: 'player',
+          col,
+          row,
+          level: 1,
+          builtOnTurn: state.turn,
+        },
+      ],
+      economy: { ...state.economy, treasurySats: state.economy.treasurySats - spec.costSats },
+    }));
+  }
+
+  async function handleCellTap(col: number, row: number) {
+    if (!selectedBuilding || !game) return;
+    if (game.terrain[row]?.[col] !== 'ISLAND_1_SOIL') return;
+    if (game.buildings.some((b) => b.col === col && b.row === row)) return;
+    await handleBuild(selectedBuilding, col, row);
+    setSelectedBuilding(null);
+  }
+
+  async function handleLaunch(type: UnitType) {
+    if (!game) return;
+    const cost = LAUNCH_COSTS[type] ?? 0;
+    if (game.economy.treasurySats < cost) return;
+    await persist((state) => ({
+      ...state,
+      units: [
+        ...state.units,
+        {
+          id: `unt_${Math.random().toString(36).slice(2, 9)}`,
+          type,
+          faction: 'player',
+          col: 3,
+          row: 8,
+          heading: 0,
+        },
+      ],
+      economy: { ...state.economy, treasurySats: state.economy.treasurySats - cost },
+    }));
+  }
+
+  async function handleEndTurn() {
+    if (!game) return;
+    setBusy(true);
+    try {
+      const { state, report } = advanceTurn(game);
+      setLastReport(report);
+      if (state.phase === 'ended') {
+        await recordMatchOutcome(state, 'defeat');
+      }
+      await saveActiveGame(state);
+      setGame(state);
+      gameRef.current = state;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRestart() {
+    const fresh = createInitialGameState();
+    await db.activeGame.put(fresh);
+    setGame(fresh);
+    gameRef.current = fresh;
+    setLastReport(null);
+    setSelectedBuilding(null);
+    setTab('construct');
+  }
+
+  if (!isHydrated || !game) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-hidden bg-charcoal">
+        <p className="animate-sway font-display text-sm uppercase tracking-[0.3em] text-foam/60">Charting the isles…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-charcoal">
+      <PortraitOverlay />
+      <Hud turn={game.turn} economy={game.economy} />
+
+      {game.phase === 'ended' ? (
+        <main className="flex min-h-0 flex-1 items-center justify-center px-4">
+          <div className="panel flex max-w-sm flex-col items-center gap-3 p-6 text-center">
+            <AlertTriangle className="h-10 w-10 text-danger" aria-hidden />
+            <p className="font-display text-lg font-bold text-parchment">The Colony Has Fallen</p>
+            <p className="text-sm text-foam">
+              Your settlement survived {game.turn} rounds with a final treasury of{' '}
+              {game.economy.treasurySats.toLocaleString()} sats and {game.economy.victoryPoints} victory points.
+            </p>
+          </div>
+        </main>
+      ) : (
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* Island canvas: primary sizing precedence, top-aligned under the HUD */}
+          <div className="flex min-h-0 w-full justify-center px-4 pt-2">
+            <div
+              className="relative"
+              style={{
+                width: 'min(100%, calc((100dvh - 180px) * 29 / 16))',
+                maxWidth: 'calc((100dvh - 180px) * 29 / 16)',
+                aspectRatio: '29 / 16',
+              }}
+            >
+              <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
+            </div>
+          </div>
+        </main>
+      )}
+
+      <BottomDock
+        tab={tab}
+        onTabChange={setTab}
+        game={game}
+        selectedBuilding={selectedBuilding}
+        onSelectBuilding={setSelectedBuilding}
+        onLaunch={handleLaunch}
+        lastReport={lastReport}
+        busy={busy}
+        onEndTurn={handleEndTurn}
+        onRestart={handleRestart}
+      />
+    </div>
+  );
+}
+
+const LAUNCH_COSTS: Partial<Record<UnitType, number>> = {
+  FISHING_SCHOONER: 600,
+  PRIVATEER_SLOOP: 1400,
+};

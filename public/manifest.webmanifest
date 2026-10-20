@@ -1,0 +1,31 @@
+{
+  "name": "Islecraft — Dual Isle Strategy",
+  "short_name": "Islecraft",
+  "description": "A local-first, dual-isle territory strategy game with a Bitcoin treasury economy.",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#050F1F",
+  "theme_color": "#0B2545",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Resume Voyage",
+      "url": "/"
+    }
+  ]
+}
