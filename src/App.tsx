@@ -83,7 +83,7 @@ export default function App() {
   }, []);
 
   const pushEffect = useCallback((fx: Omit<BoardEffect, 'id' | 'born'>) => {
-    const effect: BoardEffect = { ...fx, id: `fx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, born: Date.now() };
+    const effect: BoardEffect = { ...fx, id: `fx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, born: performance.now() };
     setEffects((prev) => [...prev, effect]);
     setTimeout(() => setEffects((prev) => prev.filter((e) => e.id !== effect.id)), 2000);
   }, []);

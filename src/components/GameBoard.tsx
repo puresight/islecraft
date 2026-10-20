@@ -203,7 +203,7 @@ export function GameBoard({
     const now = performance.now();
     effectsRef.current.forEach((fx) => {
       const age = (now - fx.born) / 1000;
-      const t = Math.min(1, age / 1.8);
+      const t = Math.min(1, Math.max(0, age / 1.8));
       const px = (fx.x + 0.5) * cellW;
       const py = (fx.y + 0.5) * cellH;
       if (fx.kind === 'flash') {
