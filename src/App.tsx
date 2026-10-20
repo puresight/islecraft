@@ -16,6 +16,8 @@ import { AlertTriangle, RotateCw } from 'lucide-react';
 import type { CommandTab } from '@/components/commandTabs';
 import { canPlaceItem, isBuildingType, itemCost } from '@/utils/placementRules';
 import { DynamicEntity } from '@/types/entities';
+import { ToastManager, useToasts } from '@/components/ToastManager';
+import { BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
 
 export interface BoardEffect {
   id: string;
@@ -47,6 +49,7 @@ export default function App() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [trayStage, setTrayStage] = useState<TrayStage>('default');
   const [effects, setEffects] = useState<BoardEffect[]>([]);
+  const { toasts, pushToast } = useToasts();
   const compactLandscape = useCompactLandscape();
   const gameRef = useRef<GameStateSnapshot | null>(null);
   gameRef.current = game;
@@ -95,7 +98,20 @@ export default function App() {
     // Build card active: construction takes priority
     if (selectedItem) {
       const check = canPlaceItem(selectedItem, col, row, 'player', current);
-      if (!check.valid) return;
+      const clickedVessel = current.units.find(
+        (u) => u.faction === 'player' && isVessel(u.type) && u.col === col && u.row === row,
+      );
+      // Clicking a friendly vessel always switches into Vessel Command mode
+      if (clickedVessel) {
+        setSelectedItem(null);
+        setSelectedVesselId(clickedVessel.id);
+        pushToast(`Commanding ${UNIT_SPEC[clickedVessel.type].label} — Select adjacent sea to navigate`, 'gold');
+        return;
+      }
+      if (!check.valid) {
+        pushToast(`Cannot build here: ${check.reason ?? 'unavailable'}`, 'error');
+        return;
+ }
       const cost = itemCost(selectedItem);
       navigator.vibrate?.(30);
       if (isBuildingType(selectedItem)) {
@@ -115,6 +131,7 @@ export default function App() {
           ],
           economy: { ...state.economy, treasurySats: state.economy.treasurySats - cost },
         }));
+        pushToast(`Constructed ${BUILDING_SPEC[selectedItem as BuildingType].label} (-${cost} sats)`, 'gold');
       } else {
         await persist((state) => ({
           ...state,
@@ -131,6 +148,7 @@ export default function App() {
           ],
           economy: { ...state.economy, treasurySats: state.economy.treasurySats - cost },
         }));
+        pushToast(`Commissioned ${UNIT_SPEC[selectedItem as UnitType].label} (-${cost} sats)`, 'gold');
       }
       if (gameRef.current && gameRef.current.economy.treasurySats < cost) {
         setSelectedItem(null);
@@ -144,6 +162,7 @@ export default function App() {
     );
     if (clickedVessel) {
       setSelectedVesselId(clickedVessel.id);
+      pushToast(`Commanding ${UNIT_SPEC[clickedVessel.type].label} — Select adjacent sea to navigate`, 'gold');
       return;
     }
 
@@ -191,11 +210,13 @@ export default function App() {
       foodBonus = 50;
       consumed.push(shoal.id);
       pushEffect({ x: col, y: row, kind: 'text', text: '+50 Food', color: '#8FAF68' });
+      pushToast('Schooner harvested fish shoal (+50 Food)', 'success');
     }
     if (galleonHere) {
       satsBonus = 35;
       consumed.push(galleonHere.id);
       pushEffect({ x: col, y: row, kind: 'text', text: '+35 ₿', color: '#D4A346' });
+      pushToast('Privateer Sloop neutralized Rogue Galleon (+35 sats bounty)', 'success');
     }
     if (consumed.length > 0) {
       setEntities((prev) => prev.filter((e) => !consumed.includes(e.id)));
@@ -282,6 +303,7 @@ export default function App() {
           foodBonus += 50;
           consumed.push(shoal.id);
           pushEffect({ x: shoal.x, y: shoal.y, kind: 'text', text: '+50 Food', color: '#8FAF68' });
+          pushToast('Schooner harvested fish shoal (+50 Food)', 'success');
         }
       });
 
@@ -350,6 +372,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-charcoal">
       <PortraitOverlay />
+      <ToastManager toasts={toasts} />
       {compactLandscape && <Hud turn={game.turn} economy={game.economy} />}
 
       {game.phase === 'ended' ? (

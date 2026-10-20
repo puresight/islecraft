@@ -4,6 +4,9 @@ import { DynamicEntity, SeaEntityType } from '@/types/entities';
 import { INITIAL_MAP, MAP_COLS, MAP_ROWS, TileType } from '@/constants/mapData';
 import { canPlaceItem, isBuildingType } from '@/utils/placementRules';
 import type { BoardEffect } from '@/App';
+import { BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
+
+const VESSEL_KINDS: UnitType[] = ['FISHING_SCHOONER', 'PRIVATEER_SLOOP'];
 
 const PALETTE: Record<TileType, { fill: string; edge?: string }> = {
   [TileType.DEEP_SEA]: { fill: '#16262E' },
@@ -41,6 +44,53 @@ const DYNAMIC_COLORS: Record<SeaEntityType, string> = {
   ROGUE_GALLEON: '#263238',
 };
 
+const TERRAIN_TOOLTIP: Record<TileType, string> = {
+  [TileType.DEEP_SEA]: 'Deep Sea',
+  [TileType.SHALLOW_WATER]: 'Coastal Shallows',
+  [TileType.P1_TERRITORY]: 'Isle of Red',
+  [TileType.P2_TERRITORY]: 'Isle of Cobalt',
+  [TileType.MOUNTAIN]: 'Mountain Spine',
+};
+
+function tooltipFor(
+  x: number,
+  y: number,
+  game: GameStateSnapshot,
+  entities: DynamicEntity[],
+): string {
+  const tile = INITIAL_MAP[y]?.[x];
+  const lines: string[] = [TERRAIN_TOOLTIP[tile] ?? 'Open Water'];
+
+  const building = game.buildings.find((b) => b.col === x && b.row === y);
+  if (building) {
+    const name = BUILDING_SPEC[building.type].label;
+    const note = building.type === 'COASTAL_BASTION' ? 'Cannon defense aura active' : BUILDING_SPEC[building.type].effect;
+    lines.push(`${name} (${note})`);
+  }
+
+  const vessel = game.units.find((u) => u.faction === 'player' && u.col === x && u.row === y);
+  if (vessel) lines.push(`${UNIT_SPEC[vessel.type].label} (Ready to steer)`);
+
+  const entity = entities.find((e) => e.x === x && e.y === y);
+  if (entity) {
+    switch (entity.type) {
+      case 'SQUALL':
+        lines.push('Squall (Waters crops)');
+        break;
+      case 'TEMPEST':
+        lines.push('Tempest (Dangerous gale)');
+        break;
+      case 'FISH_SHOAL':
+        lines.push('Fish Shoal (50 Food available)');
+        break;
+      case 'ROGUE_GALLEON':
+        lines.push('Rogue Galleon (Threat to civilian shipping)');
+        break;
+    }
+  }
+  return lines.join(' · ');
+}
+
 interface GameBoardProps {
   state: GameStateSnapshot;
   placementActive: boolean;
@@ -66,6 +116,7 @@ export function GameBoard({
 }: GameBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipText, setTooltipText] = useState<string | null>(null);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -142,6 +193,7 @@ export function GameBoard({
     // Vessel steering: brass compass reticle + navigable-water glow
     const vesselId = vesselIdRef.current;
     const selectedVessel = vesselId ? game.units.find((u) => u.id === vesselId) : undefined;
+    const s0 = Math.min(cellW, cellH);
     if (selectedVessel) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
@@ -150,11 +202,27 @@ export function GameBoard({
           const ny = selectedVessel.row + dy;
           const tile = INITIAL_MAP[ny]?.[nx];
           if (tile === TileType.SHALLOW_WATER || tile === TileType.DEEP_SEA) {
-            ctx.fillStyle = 'rgba(212, 175, 55, 0.22)';
+            ctx.fillStyle = 'rgba(52, 211, 153, 0.20)';
             ctx.fillRect(nx * cellW, ny * cellH, cellW, cellH);
-            ctx.strokeStyle = 'rgba(212, 175, 55, 0.55)';
+            ctx.strokeStyle = 'rgba(52, 211, 153, 0.6)';
             ctx.lineWidth = 1;
             ctx.strokeRect(nx * cellW + 1, ny * cellH + 1, cellW - 2, cellH - 2);
+            // Green directional indicator pointing toward the open water
+            const ncx = (nx + 0.5) * cellW;
+            const ncy = (ny + 0.5) * cellH;
+            const angle = Math.atan2(ncy - (selectedVessel.row + 0.5) * cellH, ncx - (selectedVessel.col + 0.5) * cellW);
+            ctx.save();
+            ctx.translate(ncx, ncy);
+            ctx.rotate(angle);
+            ctx.fillStyle = '#34D399';
+            ctx.globalAlpha = 0.55 + 0.45 * Math.sin(performance.now() / 280);
+            ctx.beginPath();
+            ctx.moveTo(s0 * 0.3, 0);
+            ctx.lineTo(-s0 * 0.16, -s0 * 0.16);
+            ctx.lineTo(-s0 * 0.16, s0 * 0.16);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
           }
         }
       }
@@ -270,11 +338,23 @@ export function GameBoard({
       if (e.pointerType === 'touch') return;
       const tile = tileFromEvent(e.clientX, e.clientY);
       setHoveredTile((prev) => (prev && tile && prev.x === tile.x && prev.y === tile.y ? prev : tile));
+      setTooltipText(tile ? tooltipFor(tile.x, tile.y, stateRef.current, dynamicRef.current) : null);
+      const canvas = canvasRef.current;
+      if (canvas && tile) {
+        const game = stateRef.current;
+        const overVessel = game.units.some(
+          (u) => u.faction === 'player' && u.col === tile.x && u.row === tile.y && VESSEL_KINDS.includes(u.type as never),
+        );
+        canvas.style.cursor = overVessel && !placementRef.current ? 'pointer' : placementRef.current ? 'crosshair' : 'default';
+      }
     },
     [tileFromEvent],
   );
 
-  const handlePointerLeave = useCallback(() => setHoveredTile(null), []);
+  const handlePointerLeave = useCallback(() => {
+    setHoveredTile(null);
+    setTooltipText(null);
+  }, []);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -285,16 +365,30 @@ export function GameBoard({
   );
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={`h-full w-full ${placementActive ? 'cursor-crosshair' : 'cursor-pointer'} ${className}`}
-      style={{ touchAction: 'manipulation' }}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
-      onClick={handleClick}
-      role="grid"
-      aria-label="Dual isle chart"
-    />
+    <div className={`relative ${className}`}>
+      <canvas
+        ref={canvasRef}
+        className="h-full w-full"
+        style={{ touchAction: 'manipulation' }}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+        onClick={handleClick}
+        role="grid"
+        aria-label="Dual isle chart"
+      />
+      {hoveredTile && tooltipText && (
+        <div
+          className="pointer-events-none absolute z-20 w-max max-w-[240px] rounded-md border border-[#D4AF37]/50 bg-[#111A1F]/95 px-2 py-1 shadow-panel"
+          style={{
+            left: `min(calc(${(hoveredTile.x + 0.5) * (100 / MAP_COLS)}% + 12px), calc(100% - 12px))`,
+            top: `min(calc(${(hoveredTile.y + 1) * (100 / MAP_ROWS)}% + 8px), calc(100% - 8px))`,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <p className="text-[10px] leading-snug text-[#D8C596]">{tooltipText}</p>
+        </div>
+      )}
+    </div>
   );
 }
 
