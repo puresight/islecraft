@@ -3,19 +3,23 @@ import { advanceTurn, TurnReport } from '@/game/turnEngine';
 import { Hud } from '@/components/Hud';
 import { BoardGrid } from '@/components/BoardGrid';
 import { PortraitOverlay } from '@/components/PortraitOverlay';
-import { BottomDock } from '@/components/BottomDock';
+import { RightRail } from '@/components/RightRail';
+import { CommandConsole } from '@/components/CommandConsole';
+import { useCompactLandscape } from '@/hooks/useMediaQuery';
 import { db, saveActiveGame, recordMatchOutcome } from '@/db/gameDatabase';
 import { createInitialGameState } from '@/game/initialState';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RotateCw } from 'lucide-react';
+import type { CommandTab } from '@/components/commandTabs';
 
 export default function App() {
-  const [tab, setTab] = useState<'construct' | 'launch' | 'status'>('construct');
+  const [tab, setTab] = useState<CommandTab>('construct');
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
   const [lastReport, setLastReport] = useState<TurnReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [game, setGame] = useState<GameStateSnapshot | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const compactLandscape = useCompactLandscape();
   const gameRef = useRef<GameStateSnapshot | null>(null);
   gameRef.current = game;
 
@@ -133,52 +137,61 @@ export default function App() {
     );
   }
 
+  const railProps = {
+    tab,
+    onTabChange: setTab,
+    game,
+    selectedBuilding,
+    onSelectBuilding: setSelectedBuilding,
+    onLaunch: handleLaunch,
+    busy,
+    onEndTurn: handleEndTurn,
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-charcoal">
       <PortraitOverlay />
       <Hud turn={game.turn} economy={game.economy} />
 
       {game.phase === 'ended' ? (
-        <main className="flex min-h-0 flex-1 items-center justify-center px-4">
+        <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4">
           <div className="panel flex max-w-sm flex-col items-center gap-3 p-6 text-center">
             <AlertTriangle className="h-10 w-10 text-danger" aria-hidden />
             <p className="font-display text-lg font-bold text-parchment">The Colony Has Fallen</p>
             <p className="text-sm text-foam">
-              Your settlement survived {game.turn} rounds with a final treasury of{' '}
-              {game.economy.treasurySats.toLocaleString()} sats and {game.economy.victoryPoints} victory points.
+              Your settlement survived {game.turn} rounds with {game.economy.treasurySats.toLocaleString()} sats in the
+              treasury and {game.economy.victoryPoints} victory points.
             </p>
+            <button
+              type="button"
+              onClick={handleRestart}
+              className="flex min-h-[44px] items-center gap-2 rounded-md bg-brass px-5 text-sm font-bold uppercase tracking-widest text-abyss shadow-panel transition-transform active:scale-[0.98]"
+            >
+              <RotateCw className="h-4 w-4" aria-hidden /> New Voyage
+            </button>
           </div>
         </main>
       ) : (
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {/* Island canvas: primary sizing precedence, top-aligned under the HUD */}
-          <div className="flex min-h-0 w-full justify-center px-4 pt-2">
-            <div
-              className="relative"
-              style={{
-                width: 'min(100%, calc((100dvh - 180px) * 29 / 16))',
-                maxWidth: 'calc((100dvh - 180px) * 29 / 16)',
-                aspectRatio: '29 / 16',
-              }}
-            >
-              <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
+        <main className="flex min-h-0 flex-1 overflow-hidden">
+          {compactLandscape ? (
+            <>
+              <div className="flex min-w-0 flex-1 items-center justify-center p-2">
+                <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
+              </div>
+              <RightRail {...railProps} />
+            </>
+          ) : (
+            <div className="flex min-h-0 w-full flex-col">
+              <div className="flex w-full justify-center px-4 pt-2">
+                <div className="w-full max-w-5xl" style={{ aspectRatio: '29 / 16' }}>
+                  <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
+                </div>
+              </div>
+              <CommandConsole {...railProps} />
             </div>
-          </div>
+          )}
         </main>
       )}
-
-      <BottomDock
-        tab={tab}
-        onTabChange={setTab}
-        game={game}
-        selectedBuilding={selectedBuilding}
-        onSelectBuilding={setSelectedBuilding}
-        onLaunch={handleLaunch}
-        lastReport={lastReport}
-        busy={busy}
-        onEndTurn={handleEndTurn}
-        onRestart={handleRestart}
-      />
     </div>
   );
 }
