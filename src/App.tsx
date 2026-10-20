@@ -5,6 +5,7 @@ import { BoardGrid } from '@/components/BoardGrid';
 import { PortraitOverlay } from '@/components/PortraitOverlay';
 import { RightRail } from '@/components/RightRail';
 import { CommandConsole } from '@/components/CommandConsole';
+import type { TrayStage } from '@/components/CommandConsole';
 import { useCompactLandscape } from '@/hooks/useMediaQuery';
 import { db, saveActiveGame, recordMatchOutcome } from '@/db/gameDatabase';
 import { createInitialGameState } from '@/game/initialState';
@@ -19,6 +20,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [game, setGame] = useState<GameStateSnapshot | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [trayStage, setTrayStage] = useState<TrayStage>('default');
   const compactLandscape = useCompactLandscape();
   const gameRef = useRef<GameStateSnapshot | null>(null);
   gameRef.current = game;
@@ -186,9 +188,9 @@ export default function App() {
               <RightRail {...railProps} />
             </>
           ) : (
-            <div className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden p-2">
-              <div className="flex w-full flex-none items-center justify-center overflow-hidden">
-                <div className="aspect-[29/16] max-h-full w-full">
+            <div className="relative h-full w-full flex-1 overflow-hidden">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden">
+                <div className="aspect-[29/16] max-h-full max-w-full" style={{ width: '100%' }}>
                   <BoardGrid
                     state={game}
                     placementActive={selectedBuilding !== null}
@@ -197,9 +199,7 @@ export default function App() {
                   />
                 </div>
               </div>
-              <div className="min-h-0 w-full flex-1 overflow-hidden">
-                <CommandConsole {...railProps} />
-              </div>
+              <CommandConsole {...railProps} stage={trayStage} onStageChange={setTrayStage} />
             </div>
           )}
         </main>
