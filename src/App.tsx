@@ -189,8 +189,8 @@ export default function App() {
             </>
           ) : (
             <div className="relative h-full w-full flex-1 overflow-hidden">
-              <div className="flex h-full w-full items-center justify-center overflow-hidden">
-                <div className="aspect-[29/16] max-h-full max-w-full" style={{ width: '100%' }}>
+              <div className="relative flex h-full w-full flex-1 flex-col items-center justify-start overflow-hidden pt-1">
+                <div className="w-full max-w-full" style={{ aspectRatio: '29 / 16' }}>
                   <BoardGrid
                     state={game}
                     placementActive={selectedBuilding !== null}

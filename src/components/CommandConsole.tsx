@@ -21,9 +21,9 @@ export type TrayStage = 'peek' | 'default' | 'expanded';
 const STAGE_ORDER: TrayStage[] = ['peek', 'default', 'expanded'];
 
 const STAGE_HEIGHT: Record<TrayStage, string> = {
-  peek: 'h-12',
-  default: 'h-48 md:h-56',
-  expanded: 'h-[65vh]',
+  peek: 'h-10',
+  default: 'h-44',
+  expanded: 'h-80 max-h-[42vh]',
 };
 
 interface CommandConsoleProps {
@@ -157,13 +157,11 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
       className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-slate-700/60 bg-slate-950/85 shadow-2xl backdrop-blur-md transition-all duration-200 ease-out ${STAGE_HEIGHT[stage]}`}
     >
       <DrawerHandle {...props} />
-      {stage === 'peek' ? (
-        <PeekBody {...props} />
-      ) : stage === 'default' ? (
+      {stage === 'default' ? (
         <DefaultBody {...props} />
-      ) : (
+      ) : stage === 'expanded' ? (
         <ExpandedBody {...props} />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -206,7 +204,7 @@ function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { st
 
   return (
     <div
-      className="flex h-12 shrink-0 touch-none select-none items-center gap-3 px-3"
+      className="flex h-10 shrink-0 touch-none select-none items-center gap-3 px-3"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -234,26 +232,6 @@ function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { st
       >
         <ChevronUp className="h-5 w-5" aria-hidden />
       </button>
-    </div>
-  );
-}
-
-function PeekBody({ game, busy, onEndTurn, onStageChange }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
-  return (
-    <div className="flex min-h-0 flex-1 items-center justify-between gap-3 px-3 pb-1.5">
-      <span className="truncate text-xs text-foam/80">
-        {game.phase === 'ended' ? 'The colony has fallen.' : 'Command deck lowered — drag up or tap to expand.'}
-      </span>
-      <div className="flex shrink-0 items-center gap-2">
-        <EndTurnButton busy={busy} onEndTurn={onEndTurn} />
-        <button
-          type="button"
-          onClick={() => onStageChange('default')}
-          className="flex min-h-[36px] items-center rounded-md border border-brass/60 px-3 text-[11px] font-bold uppercase tracking-widest text-brass transition-colors hover:bg-brass/15"
-        >
-          Expand Deck
-        </button>
-      </div>
     </div>
   );
 }
