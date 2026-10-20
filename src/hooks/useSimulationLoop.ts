@@ -11,6 +11,8 @@ interface SimulationLoopOptions {
   game: GameStateSnapshot | null;
   /** Applies a mutated snapshot to React state and Dexie. */
   onTurnAdvance: (next: GameStateSnapshot) => Promise<void> | void;
+  /** Runs on each 1.5s world pulse, after entities drift. */
+  onHeartbeat?: () => void;
   enabled: boolean;
 }
 
@@ -18,13 +20,15 @@ interface SimulationLoopOptions {
  * Real-time turn clock (60s) plus a 1.5s world heartbeat that drifts
  * weather and sea entities. Returns the visible countdown and live entities.
  */
-export function useSimulationLoop({ game, onTurnAdvance, enabled }: SimulationLoopOptions) {
+export function useSimulationLoop({ game, onTurnAdvance, onHeartbeat, enabled }: SimulationLoopOptions) {
   const [secondsLeft, setSecondsLeft] = useState(TURN_SECONDS);
   const [entities, setEntities] = useState<DynamicEntity[]>(() => initialEntities());
   const gameRef = useRef(game);
   gameRef.current = game;
   const entitiesRef = useRef(entities);
   entitiesRef.current = entities;
+  const heartbeatRef = useRef(onHeartbeat);
+  heartbeatRef.current = onHeartbeat;
 
   useEffect(() => {
     if (!enabled || !game || game.phase !== 'playing') return;
@@ -33,6 +37,8 @@ export function useSimulationLoop({ game, onTurnAdvance, enabled }: SimulationLo
       setEntities((prev) => {
         const next = tickEntities(prev);
         entitiesRef.current = next;
+        // Notify world systems (bastions, harvesting) after the drift
+        heartbeatRef.current?.();
         return next;
       });
     }, HEARTBEAT_MS);
@@ -69,9 +75,10 @@ export function useSimulationLoop({ game, onTurnAdvance, enabled }: SimulationLo
       clearInterval(heartbeat);
       clearInterval(clock);
     };
-  }, [enabled, game?.id, game?.phase, onTurnAdvance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, game?.id, game?.phase]);
 
   const resetClock = useCallback(() => setSecondsLeft(TURN_SECONDS), []);
 
-  return { secondsLeft, entities, resetClock };
+  return { secondsLeft, entities, setEntities, resetClock };
 }

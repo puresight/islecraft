@@ -232,18 +232,15 @@ function DrawerHandle({ stage, onStageChange, game, secondsLeft }: CommandConsol
       </div>
 
       {/* Zone 3 — economy + controls, right-justified */}
-      <div className="flex min-w-0 items-center justify-end gap-3">
-        <span className="flex shrink-0 items-center gap-1">
-          <Coins className="h-3.5 w-3.5 text-amber-400" aria-hidden />
-          <span className="font-mono text-[11px] font-semibold text-amber-400">₿ {formatSats(game.economy.treasurySats)}</span>
-        </span>
-        <HeaderMeter label="Food" value={game.economy.foodReserves} max={Math.max(game.economy.population * 2, 1)} tone={game.economy.foodReserves < game.economy.population * 0.5 ? 'bg-danger' : 'bg-ok'} />
-        <span className="hidden shrink-0 items-center gap-1 md:flex">
-          <Users className="h-3.5 w-3.5 text-foam/70" aria-hidden />
-          <span className="font-mono text-[11px] font-semibold text-foam/90">
-            {game.economy.population.toLocaleString()}/{game.economy.housingCapacity}
-          </span>
-        </span>
+      <div className="flex min-w-0 items-center justify-end gap-2.5">
+        <HeaderMetric icon={Coins} label="Sats" value={`₿ ${formatSats(game.economy.treasurySats)}`} tone="text-amber-400" />
+        <HeaderMetric
+          icon={Users}
+          label="Pop"
+          value={`${game.economy.population.toLocaleString()}/${game.economy.housingCapacity}`}
+          tone="text-foam/90"
+        />
+        <FoodBadge game={game} />
         <button
           type="button"
           aria-label={stage === 'expanded' ? 'Collapse command deck' : 'Expand command deck'}
@@ -263,15 +260,41 @@ function formatClock(total: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function HeaderMeter({ label, value, max, tone }: { label: string; value: number; max: number; tone: string }) {
-  const pct = max > 0 ? clampPercent((value / max) * 100) : 0;
+function HeaderMetric({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  tone: string;
+}) {
   return (
-    <div className="hidden min-w-[56px] shrink-0 flex-col lg:flex" aria-label={`${label} ${Math.round(pct)} percent`}>
-      <span className="text-[8px] font-medium uppercase tracking-widest text-foam/60">{label}</span>
-      <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-abyss">
-        <div className={`h-full rounded-full transition-all duration-500 ${tone}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
+    <span className="flex shrink-0 items-center gap-1" aria-label={`${label}: ${value}`}>
+      <Icon className="h-3.5 w-3.5 text-foam/70" aria-hidden />
+      <span className={`font-mono text-[11px] font-semibold ${tone}`}>{value}</span>
+    </span>
+  );
+}
+
+function FoodBadge({ game }: { game: GameStateSnapshot }) {
+  const capacity = Math.max(game.economy.population * 2, 1);
+  const pct = clampPercent(Math.round((game.economy.foodReserves / capacity) * 100));
+  const tone =
+    game.economy.foodReserves < game.economy.population * 0.5
+      ? 'bg-danger/20 text-danger'
+      : pct < 50
+        ? 'bg-warn/20 text-warn'
+        : 'bg-ok/20 text-ok';
+  return (
+    <span
+      className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold ${tone}`}
+      aria-label={`Food: ${pct} percent capacity`}
+    >
+      Food: {pct}%
+    </span>
   );
 }
 

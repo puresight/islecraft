@@ -3,6 +3,7 @@ import { Building, BuildingType, Faction, GameStateSnapshot, UnitEntity, UnitTyp
 import { DynamicEntity, SeaEntityType } from '@/types/entities';
 import { INITIAL_MAP, MAP_COLS, MAP_ROWS, TileType } from '@/constants/mapData';
 import { canPlaceItem, isBuildingType } from '@/utils/placementRules';
+import type { BoardEffect } from '@/App';
 
 const PALETTE: Record<TileType, { fill: string; edge?: string }> = {
   [TileType.DEEP_SEA]: { fill: '#16262E' },
@@ -46,6 +47,8 @@ interface GameBoardProps {
   activeFaction: Faction;
   selectedItem: BuildingType | UnitType | null;
   dynamicEntities: DynamicEntity[];
+  selectedVesselId: string | null;
+  effects: BoardEffect[];
   onCellTap: (col: number, row: number) => void;
   className?: string;
 }
@@ -56,6 +59,8 @@ export function GameBoard({
   activeFaction,
   selectedItem,
   dynamicEntities,
+  selectedVesselId,
+  effects,
   onCellTap,
   className = '',
 }: GameBoardProps) {
@@ -74,6 +79,10 @@ export function GameBoard({
   hoverRef.current = hoveredTile;
   const dynamicRef = useRef(dynamicEntities);
   dynamicRef.current = dynamicEntities;
+  const vesselIdRef = useRef(selectedVesselId);
+  vesselIdRef.current = selectedVesselId;
+  const effectsRef = useRef(effects);
+  effectsRef.current = effects;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -130,6 +139,27 @@ export function GameBoard({
     const faction = factionRef.current;
     const active = placementRef.current && item !== null;
 
+    // Vessel steering: brass compass reticle + navigable-water glow
+    const vesselId = vesselIdRef.current;
+    const selectedVessel = vesselId ? game.units.find((u) => u.id === vesselId) : undefined;
+    if (selectedVessel) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = selectedVessel.col + dx;
+          const ny = selectedVessel.row + dy;
+          const tile = INITIAL_MAP[ny]?.[nx];
+          if (tile === TileType.SHALLOW_WATER || tile === TileType.DEEP_SEA) {
+            ctx.fillStyle = 'rgba(212, 175, 55, 0.22)';
+            ctx.fillRect(nx * cellW, ny * cellH, cellW, cellH);
+            ctx.strokeStyle = 'rgba(212, 175, 55, 0.55)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(nx * cellW + 1, ny * cellH + 1, cellW - 2, cellH - 2);
+          }
+        }
+      }
+    }
+
     // Valid-placement field guide over home territory
     if (active && isBuildingType(item)) {
       ctx.fillStyle = 'rgba(212, 175, 55, 0.16)';
@@ -165,9 +195,33 @@ export function GameBoard({
     game.buildings.forEach((b) => drawBuilding(ctx, b, cellW, cellH));
     game.units
       .filter((u) => u.faction !== 'neutral')
-      .forEach((u) => drawUnit(ctx, u, cellW, cellH));
+      .forEach((u) => drawUnit(ctx, u, cellW, cellH, u.id === vesselId));
     // Live world entities pulse above everything
     dynamicRef.current.forEach((e) => drawDynamicEntity(ctx, e, cellW, cellH));
+
+    // Effects: floating resource text + bastion cannon flashes
+    const now = performance.now();
+    effectsRef.current.forEach((fx) => {
+      const age = (now - fx.born) / 1000;
+      const t = Math.min(1, age / 1.8);
+      const px = (fx.x + 0.5) * cellW;
+      const py = (fx.y + 0.5) * cellH;
+      if (fx.kind === 'flash') {
+        ctx.globalAlpha = Math.max(0, 1 - t * 2);
+        ctx.fillStyle = fx.color;
+        ctx.beginPath();
+        ctx.arc(px, py, cellW * (0.3 + t * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.globalAlpha = Math.max(0, 1 - t);
+        ctx.fillStyle = fx.color;
+        ctx.font = `bold ${Math.max(10, cellH * 0.55)}px ui-monospace, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(fx.text ?? '', px, py - t * cellH * 1.6);
+        ctx.globalAlpha = 1;
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -197,7 +251,7 @@ export function GameBoard({
       window.removeEventListener('islecraft-entities-tick', onEntities);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [draw, state, placementActive, selectedItem, activeFaction, hoveredTile, dynamicEntities]);
+  }, [draw, state, placementActive, selectedItem, activeFaction, hoveredTile, dynamicEntities, effects, selectedVesselId]);
 
   const tileFromEvent = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -410,7 +464,7 @@ function drawDynamicEntity(ctx: CanvasRenderingContext2D, e: DynamicEntity, cell
   ctx.restore();
 }
 
-function drawUnit(ctx: CanvasRenderingContext2D, u: UnitEntity, cellW: number, cellH: number) {
+function drawUnit(ctx: CanvasRenderingContext2D, u: UnitEntity, cellW: number, cellH: number, selected = false) {
   const cx = (u.col + 0.5) * cellW;
   const cy = (u.row + 0.5) * cellH;
   const s = Math.min(cellW, cellH);
@@ -454,6 +508,24 @@ function drawUnit(ctx: CanvasRenderingContext2D, u: UnitEntity, cellW: number, c
       ctx.strokeStyle = 'rgba(22, 38, 46, 0.5)';
       ctx.lineWidth = 1;
       ctx.stroke();
+      if (selected) {
+        // Pulsing brass compass ring
+        const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 250);
+        ctx.strokeStyle = '#D4AF37';
+        ctx.globalAlpha = pulse;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.42, 0, Math.PI * 2);
+        ctx.stroke();
+        // Cardinal tick marks
+        [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].forEach((a) => {
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * s * 0.36, cy + Math.sin(a) * s * 0.36);
+          ctx.lineTo(cx + Math.cos(a) * s * 0.48, cy + Math.sin(a) * s * 0.48);
+          ctx.stroke();
+        });
+        ctx.globalAlpha = 1;
+      }
       ctx.beginPath();
       ctx.moveTo(cx, cy - s * 0.28);
       ctx.lineTo(cx, cy + s * 0.12);
