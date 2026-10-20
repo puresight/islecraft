@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Wind, CloudLightning, CloudRain, Sun, Sprout, Sailboat, ScrollText, ChevronUp, ChevronDown, type LucideIcon } from 'lucide-react';
+import { Wind, CloudLightning, CloudRain, Sun, Sprout, Sailboat, ScrollText, ChevronUp, ChevronDown, Flag, Hourglass, Coins, Users, Wheat, Flame, type LucideIcon } from 'lucide-react';
 import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
 import { BUILDING_ICON, UNIT_ICON } from '@/game/entityIcons';
 import { clampPercent, formatSats } from '@/utils/format';
@@ -157,6 +157,7 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
       className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-slate-700/60 bg-slate-950/85 shadow-2xl backdrop-blur-md transition-all duration-200 ease-out ${STAGE_HEIGHT[stage]}`}
     >
       <DrawerHandle {...props} />
+      {stage !== 'peek' && <DangerBanners game={props.game} />}
       {stage === 'default' ? (
         <DefaultBody {...props} />
       ) : stage === 'expanded' ? (
@@ -204,34 +205,79 @@ function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { st
 
   return (
     <div
-      className="flex h-10 shrink-0 touch-none select-none items-center gap-3 px-3"
+      className="flex h-10 shrink-0 touch-none select-none items-center gap-2.5 px-3"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foam/70">
-        Turn {game.turn} · {formatSats(game.economy.treasurySats)} · {game.economy.victoryPoints} VP
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-terra shadow-inset" aria-hidden>
+        <Flag className="h-3.5 w-3.5 text-parchment" />
       </span>
+      <span className="hidden shrink-0 font-display text-[11px] font-bold tracking-wide text-parchment sm:block">Terra Corsairs</span>
+      <span className="flex min-w-0 shrink items-center gap-1 overflow-hidden">
+        <Hourglass className="h-3.5 w-3.5 shrink-0 text-foam/70" aria-hidden />
+        <span className="font-mono text-[11px] font-semibold text-foam/90">R{game.turn}</span>
+        <Coins className="ml-1.5 h-3.5 w-3.5 shrink-0 text-brass" aria-hidden />
+        <span className="font-mono text-[11px] font-semibold text-brass">{formatSats(game.economy.treasurySats)}</span>
+        <Users className="ml-1.5 h-3.5 w-3.5 shrink-0 text-foam/70" aria-hidden />
+        <span className="hidden font-mono text-[11px] font-semibold text-foam/90 md:inline">
+          {game.economy.population.toLocaleString()}/{game.economy.housingCapacity}
+        </span>
+      </span>
+      <HeaderMeter label="Food" value={game.economy.foodReserves} max={Math.max(game.economy.population * 2, 1)} tone={game.economy.foodReserves < game.economy.population * 0.5 ? 'bg-danger' : 'bg-ok'} />
+      <HeaderMeter label="Unrest" value={game.economy.unrestIndex} max={100} tone={game.economy.unrestIndex >= 60 ? 'bg-danger' : 'bg-warn'} />
       <button
         type="button"
         aria-label="Collapse command deck"
         disabled={stage === 'peek'}
         onClick={() => step(-1)}
-        className="flex h-9 w-9 items-center justify-center rounded-md text-foam/80 transition-colors hover:bg-slate-700/60 hover:text-parchment disabled:opacity-30"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foam/80 transition-colors hover:bg-slate-700/60 hover:text-parchment disabled:opacity-30"
       >
         <ChevronDown className="h-5 w-5" aria-hidden />
       </button>
-      <div className="h-1.5 w-12 shrink-0 rounded-full bg-slate-600 transition-colors hover:bg-slate-400" />
+      <div className="h-1.5 w-10 shrink-0 rounded-full bg-slate-600 transition-colors hover:bg-slate-400" />
       <button
         type="button"
         aria-label="Expand command deck"
         disabled={stage === 'expanded'}
         onClick={() => step(1)}
-        className="flex h-9 w-9 items-center justify-center rounded-md text-foam/80 transition-colors hover:bg-slate-700/60 hover:text-parchment disabled:opacity-30"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foam/80 transition-colors hover:bg-slate-700/60 hover:text-parchment disabled:opacity-30"
       >
         <ChevronUp className="h-5 w-5" aria-hidden />
       </button>
+    </div>
+  );
+}
+
+function HeaderMeter({ label, value, max, tone }: { label: string; value: number; max: number; tone: string }) {
+  const pct = max > 0 ? clampPercent((value / max) * 100) : 0;
+  return (
+    <div className="hidden min-w-[56px] shrink-0 flex-col lg:flex" aria-label={`${label} ${Math.round(pct)} percent`}>
+      <span className="text-[8px] font-medium uppercase tracking-widest text-foam/60">{label}</span>
+      <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-abyss">
+        <div className={`h-full rounded-full transition-all duration-500 ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DangerBanners({ game }: { game: GameStateSnapshot }) {
+  const starving = game.economy.foodReserves < game.economy.population * 0.5;
+  const mutinous = game.economy.unrestIndex >= 60;
+  if (!starving && !mutinous) return null;
+  return (
+    <div className="flex shrink-0 items-center gap-2 px-3 pb-1">
+      {starving && (
+        <p className="flex items-center gap-1.5 rounded bg-danger/15 px-2 py-0.5 text-[10px] text-danger animate-fade-up">
+          <Wheat className="h-3 w-3" aria-hidden /> Food low — settlers starving
+        </p>
+      )}
+      {mutinous && (
+        <p className="flex items-center gap-1.5 rounded bg-danger/15 px-2 py-0.5 text-[10px] text-danger animate-fade-up">
+          <Flame className="h-3 w-3" aria-hidden /> Mutiny imminent
+        </p>
+      )}
     </div>
   );
 }

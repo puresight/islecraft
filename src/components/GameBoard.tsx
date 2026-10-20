@@ -54,12 +54,20 @@ export function GameBoard({ state, placementActive, onCellTap, className = '' }:
       for (let col = 0; col < MAP_COLS; col++) {
         const tile = INITIAL_MAP[row][col];
         const { fill, edge } = PALETTE[tile];
-        ctx.fillStyle = fill;
-        ctx.fillRect(col * cellW, row * cellH, cellW + 0.5, cellH + 0.5);
+        const px = col * cellW;
+        const py = row * cellH;
         if (edge) {
+          // Land tiles: rounded fills with a tinted coastline stroke for a hand-drawn chart look
+          const r = Math.min(cellW, cellH) * 0.18;
+          roundRect(ctx, px + 1, py + 1, cellW - 2, cellH - 2, r);
+          ctx.fillStyle = fill;
+          ctx.fill();
           ctx.strokeStyle = edge;
           ctx.lineWidth = 1.5;
-          ctx.strokeRect(col * cellW + 0.75, row * cellH + 0.75, cellW - 1.5, cellH - 1.5);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = fill;
+          ctx.fillRect(px, py, cellW + 0.5, cellH + 0.5);
         }
       }
     }

@@ -153,7 +153,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-charcoal">
       <PortraitOverlay />
-      <Hud turn={game.turn} economy={game.economy} />
+      {compactLandscape && <Hud turn={game.turn} economy={game.economy} />}
 
       {game.phase === 'ended' ? (
         <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4">
@@ -189,7 +189,7 @@ export default function App() {
             </>
           ) : (
             <div className="relative h-full w-full flex-1 overflow-hidden">
-              <div className="relative flex h-full w-full flex-1 flex-col items-center justify-start overflow-hidden pt-1">
+              <div className="relative flex h-full w-full flex-1 flex-col items-center justify-start overflow-hidden pt-0">
                 <div className="w-full max-w-full" style={{ aspectRatio: '29 / 16' }}>
                   <GameBoard
                     state={game}
