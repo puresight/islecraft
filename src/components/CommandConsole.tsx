@@ -21,7 +21,7 @@ export type TrayStage = 'peek' | 'default' | 'expanded';
 const STAGE_ORDER: TrayStage[] = ['peek', 'default', 'expanded'];
 
 const STAGE_HEIGHT: Record<TrayStage, string> = {
-  peek: 'h-10',
+  peek: 'h-11',
   default: 'h-44',
   expanded: 'h-80 max-h-[42vh]',
 };
@@ -205,47 +205,50 @@ function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { st
 
   return (
     <div
-      className="flex h-10 shrink-0 touch-none select-none items-center gap-2.5 px-3"
+      className="flex h-11 w-full shrink-0 touch-none select-none items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-900/90 px-4"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-terra shadow-inset" aria-hidden>
-        <Flag className="h-3.5 w-3.5 text-parchment" />
-      </span>
-      <span className="hidden shrink-0 font-display text-[11px] font-bold tracking-wide text-parchment sm:block">Terra Corsairs</span>
-      <span className="flex min-w-0 shrink items-center gap-1 overflow-hidden">
-        <Hourglass className="h-3.5 w-3.5 shrink-0 text-foam/70" aria-hidden />
-        <span className="font-mono text-[11px] font-semibold text-foam/90">R{game.turn}</span>
-        <Coins className="ml-1.5 h-3.5 w-3.5 shrink-0 text-brass" aria-hidden />
-        <span className="font-mono text-[11px] font-semibold text-brass">{formatSats(game.economy.treasurySats)}</span>
-        <Users className="ml-1.5 h-3.5 w-3.5 shrink-0 text-foam/70" aria-hidden />
-        <span className="hidden font-mono text-[11px] font-semibold text-foam/90 md:inline">
-          {game.economy.population.toLocaleString()}/{game.economy.housingCapacity}
+      {/* Zone 1 — identity: crest + round counter */}
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-terra shadow-inset" aria-hidden>
+          <Flag className="h-3.5 w-3.5 text-parchment" />
         </span>
-      </span>
-      <HeaderMeter label="Food" value={game.economy.foodReserves} max={Math.max(game.economy.population * 2, 1)} tone={game.economy.foodReserves < game.economy.population * 0.5 ? 'bg-danger' : 'bg-ok'} />
-      <HeaderMeter label="Unrest" value={game.economy.unrestIndex} max={100} tone={game.economy.unrestIndex >= 60 ? 'bg-danger' : 'bg-warn'} />
-      <button
-        type="button"
-        aria-label="Collapse command deck"
-        disabled={stage === 'peek'}
-        onClick={() => step(-1)}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foam/80 transition-colors hover:bg-slate-700/60 hover:text-parchment disabled:opacity-30"
-      >
-        <ChevronDown className="h-5 w-5" aria-hidden />
-      </button>
-      <div className="h-1.5 w-10 shrink-0 rounded-full bg-slate-600 transition-colors hover:bg-slate-400" />
-      <button
-        type="button"
-        aria-label="Expand command deck"
-        disabled={stage === 'expanded'}
-        onClick={() => step(1)}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foam/80 transition-colors hover:bg-slate-700/60 hover:text-parchment disabled:opacity-30"
-      >
-        <ChevronUp className="h-5 w-5" aria-hidden />
-      </button>
+        <span className="hidden font-display text-[11px] font-bold tracking-wide text-parchment md:block">Isle of Red</span>
+        <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold text-foam/90">
+          <Hourglass className="h-3.5 w-3.5 text-foam/70" aria-hidden /> Year 1781 · Turn {game.turn}
+        </span>
+      </div>
+
+      {/* Zone 2 — tactile drag handle, centered */}
+      <div className="flex min-w-0 flex-1 justify-center">
+        <div className="h-1.5 w-14 cursor-pointer rounded-full bg-slate-600 transition-colors hover:bg-slate-400" />
+      </div>
+
+      {/* Zone 3 — economy + controls, right-justified */}
+      <div className="flex min-w-0 items-center justify-end gap-3">
+        <span className="flex shrink-0 items-center gap-1">
+          <Coins className="h-3.5 w-3.5 text-amber-400" aria-hidden />
+          <span className="font-mono text-[11px] font-semibold text-amber-400">₿ {formatSats(game.economy.treasurySats)}</span>
+        </span>
+        <HeaderMeter label="Food" value={game.economy.foodReserves} max={Math.max(game.economy.population * 2, 1)} tone={game.economy.foodReserves < game.economy.population * 0.5 ? 'bg-danger' : 'bg-ok'} />
+        <span className="hidden shrink-0 items-center gap-1 md:flex">
+          <Users className="h-3.5 w-3.5 text-foam/70" aria-hidden />
+          <span className="font-mono text-[11px] font-semibold text-foam/90">
+            {game.economy.population.toLocaleString()}/{game.economy.housingCapacity}
+          </span>
+        </span>
+        <button
+          type="button"
+          aria-label={stage === 'expanded' ? 'Collapse command deck' : 'Expand command deck'}
+          onClick={() => step(stage === 'expanded' ? -1 : 1)}
+          className="rounded p-1 text-foam/80 transition-colors hover:bg-slate-800 hover:text-parchment"
+        >
+          {stage === 'expanded' ? <ChevronDown className="h-5 w-5" aria-hidden /> : <ChevronUp className="h-5 w-5" aria-hidden />}
+        </button>
+      </div>
     </div>
   );
 }

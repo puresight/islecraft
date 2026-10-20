@@ -10,7 +10,7 @@ const PALETTE: Record<TileType, { fill: string; edge?: string }> = {
   [TileType.MOUNTAIN]: { fill: '#4D6B53' },
 };
 
-const GRID_LINE = 'rgba(255, 255, 255, 0.04)';
+const GRID_LINE = 'rgba(255, 255, 255, 0.02)';
 
 const FACTION_FILL: Record<string, string> = {
   player: '#B85D3D',
@@ -57,14 +57,14 @@ export function GameBoard({ state, placementActive, onCellTap, className = '' }:
         const px = col * cellW;
         const py = row * cellH;
         if (edge) {
-          // Land tiles: rounded fills with a tinted coastline stroke for a hand-drawn chart look
-          const r = Math.min(cellW, cellH) * 0.18;
-          roundRect(ctx, px + 1, py + 1, cellW - 2, cellH - 2, r);
+          // Land tiles: solid edge-to-edge fill; a subtle tint distinguishes the two isles
           ctx.fillStyle = fill;
-          ctx.fill();
+          ctx.fillRect(px, py, cellW + 0.5, cellH + 0.5);
           ctx.strokeStyle = edge;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
+          ctx.globalAlpha = 0.18;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 0.5, py + 0.5, cellW - 1, cellH - 1);
+          ctx.globalAlpha = 1;
         } else {
           ctx.fillStyle = fill;
           ctx.fillRect(px, py, cellW + 0.5, cellH + 0.5);
