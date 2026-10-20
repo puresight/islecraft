@@ -172,18 +172,23 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <main className="flex min-h-0 flex-1 overflow-hidden">
+        <main className="flex min-h-0 w-full flex-1 overflow-hidden">
           {compactLandscape ? (
             <>
-              <div className="flex min-w-0 flex-1 items-center justify-center p-2">
-                <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
+              <div className="flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden p-1">
+                <BoardGrid
+                  state={game}
+                  placementActive={selectedBuilding !== null}
+                  onCellTap={handleCellTap}
+                  className="h-full max-h-full max-w-full"
+                />
               </div>
               <RightRail {...railProps} />
             </>
           ) : (
             <div className="flex min-h-0 w-full flex-col">
               <div className="flex w-full justify-center px-4 pt-2">
-                <div className="w-full max-w-5xl" style={{ aspectRatio: '29 / 16' }}>
+                <div className="w-full max-w-5xl" style={{ aspectRatio: '29 / 16', maxHeight: '50vh' }}>
                   <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
                 </div>
               </div>

@@ -13,16 +13,22 @@ interface BoardGridProps {
   state: GameStateSnapshot;
   placementActive: boolean;
   onCellTap: (col: number, row: number) => void;
+  className?: string;
 }
 
-export function BoardGrid({ state, placementActive, onCellTap }: BoardGridProps) {
+export function BoardGrid({ state, placementActive, onCellTap, className = '' }: BoardGridProps) {
   const buildingAt = new Map<string, Building>();
   state.buildings.forEach((b) => buildingAt.set(`${b.col},${b.row}`, b));
   const unitAt = new Map<string, UnitEntity>();
   state.units.forEach((u) => unitAt.set(`${u.col},${u.row}`, u));
 
   return (
-    <div className="relative overflow-hidden rounded-lg border-2 border-rim shadow-panel" style={{ aspectRatio: '29 / 16' }} role="grid" aria-label="Dual isle chart">
+    <div
+      className={`relative overflow-hidden rounded-lg border-2 border-rim shadow-panel ${className}`}
+      style={{ aspectRatio: '29 / 16' }}
+      role="grid"
+      aria-label="Dual isle chart"
+    >
       <div
         className="grid h-full w-full"
         style={{ gridTemplateColumns: `repeat(29, 1fr)`, gridTemplateRows: `repeat(16, 1fr)` }}

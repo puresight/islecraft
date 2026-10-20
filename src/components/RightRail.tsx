@@ -66,7 +66,7 @@ export function RightRail({ tab, onTabChange, game, selectedBuilding, onSelectBu
         : [];
 
   return (
-    <aside className="flex h-full w-52 shrink-0 flex-col gap-1.5 overflow-y-auto border-l border-rim bg-charcoal p-1.5 lg:w-60">
+    <aside className="h-full w-48 flex-shrink-0 overflow-y-auto border-l border-rim bg-charcoal p-1.5 sm:w-56">
       <div className="flex flex-col gap-1" role="tablist" aria-label="Command categories">
         {(
           [
