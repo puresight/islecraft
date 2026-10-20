@@ -1,4 +1,5 @@
-import { BuildingType, GameStateSnapshot } from '@/types/game';
+import { BuildingType, GameStateSnapshot, TerrainType } from '@/types/game';
+import { INITIAL_MAP, TileType } from '@/constants/mapData';
 
 export interface TurnAuditReport {
   turn: number;
@@ -24,6 +25,8 @@ export interface TurnAuditReport {
   quartersCount: number;
   events: string[];
   stability: 'Peaceful' | 'Agitated' | 'Mutinous';
+  /** Mutineer raised this audit: where it landed on home soil */
+  mutineerSpawn: { col: number; row: number } | null;
 }
 
 const STABILITY_BANDS = [
@@ -40,11 +43,29 @@ function stabilityFor(unrest: number): TurnAuditReport['stability'] {
   return 'Mutinous';
 }
 
+const chebyshev = (ax: number, ay: number, bx: number, by: number) =>
+  Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+function findMutineerSpawnTile(state: GameStateSnapshot): { col: number; row: number } | null {
+  const candidates: Array<{ col: number; row: number }> = [];
+  for (let row = 0; row < INITIAL_MAP.length; row++) {
+    for (let col = 0; col < INITIAL_MAP[row].length; col++) {
+      if (INITIAL_MAP[row][col] !== TileType.P1_TERRITORY) continue;
+      const occupied =
+        state.buildings.some((b) => b.col === col && b.row === row) ||
+        state.units.some((u) => u.col === col && u.row === row);
+      if (!occupied) candidates.push({ col, row });
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 /**
  * Pure end-of-turn settlement audit. Reads the snapshot, returns the ledger —
  * does not mutate anything.
  */
-  export function calculateTurnAudit(
+export function calculateTurnAudit(
   state: GameStateSnapshot,
   options?: { wateredPlantationKeys?: Set<string> },
 ): TurnAuditReport {
@@ -127,6 +148,16 @@ function stabilityFor(unrest: number): TurnAuditReport['stability'] {
   const revenueSats = mints * 40;
   const netTreasury = econ.treasurySats + revenueSats;
 
+  // --- Mutineer threat: unrest 60%+ raises rabble on home soil ---
+  let mutineerSpawn: { col: number; row: number } | null = null;
+  const existingMutineer = state.units.some((u) => u.type === 'CORSAIR_MUTINEER');
+  if (unrest >= 60 && !existingMutineer) {
+    mutineerSpawn = findMutineerSpawnTile(state);
+    if (mutineerSpawn) {
+      events.push('Mutiny! Corsair mutineers have come ashore.');
+    }
+  }
+
   return {
     turn: state.turn,
     revenueSats,
@@ -146,5 +177,6 @@ function stabilityFor(unrest: number): TurnAuditReport['stability'] {
     quartersCount: quarters,
     events,
     stability: stabilityFor(unrest),
+    mutineerSpawn,
   };
 }

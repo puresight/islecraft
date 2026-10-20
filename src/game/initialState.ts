@@ -56,6 +56,8 @@ export function createInitialGameState(): GameStateSnapshot {
       treasurySats: 12500,
       unrestIndex: 8,
       victoryPoints: 0,
+      peakPopulation: 120,
+      raidersSunk: 0,
     },
   };
 }

@@ -49,3 +49,28 @@ export async function recordMatchOutcome(
     turnsSurvived: state.turn,
   });
 }
+
+export interface CampaignResultRecord {
+  date: string;
+  faction: 'P1';
+  finalScore: number;
+  rank: string;
+  turnsSurvived: number;
+  treasurySats: number;
+  peakPop: number;
+}
+
+export async function recordCampaignResult(result: CampaignResultRecord): Promise<void> {
+  await db.matchHistory.add({
+    completedAt: Date.now(),
+    outcome: 'victory',
+    victoryPoints: result.finalScore,
+    finalTreasurySats: result.treasurySats,
+    turnsSurvived: result.turnsSurvived,
+    date: result.date,
+    faction: result.faction,
+    finalScore: result.finalScore,
+    rank: result.rank,
+    peakPop: result.peakPop,
+  });
+}

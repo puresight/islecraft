@@ -8,7 +8,7 @@ import { CommandConsole } from '@/components/CommandConsole';
 import type { TrayStage } from '@/components/CommandConsole';
 import { useCompactLandscape } from '@/hooks/useMediaQuery';
 import { useSimulationLoop } from '@/hooks/useSimulationLoop';
-import { db, saveActiveGame, recordMatchOutcome } from '@/db/gameDatabase';
+import { db, saveActiveGame, recordMatchOutcome, recordCampaignResult } from '@/db/gameDatabase';
 import { createInitialGameState } from '@/game/initialState';
 import { INITIAL_MAP, TileType } from '@/constants/mapData';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,7 +18,8 @@ import { canPlaceItem, isBuildingType, itemCost } from '@/utils/placementRules';
 import { DynamicEntity } from '@/types/entities';
 import { ToastManager, useToasts } from '@/components/ToastManager';
 import { TurnGazetteModal } from '@/components/TurnGazetteModal';
-import { BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
+import { VictoryModal, rankForScore, scoreForCampaign, type VictoryStats } from '@/components/VictoryModal';
+import { BUILDING_SPEC, CAMPAIGN_TURNS, UNIT_SPEC } from '@/types/game';
 
 export interface BoardEffect {
   id: string;
@@ -45,6 +46,7 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<BuildingType | UnitType | null>(null);
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
   const [gazetteAudit, setGazetteAudit] = useState<TurnAuditReport | null>(null);
+  const [victoryStats, setVictoryStats] = useState<VictoryStats | null>(null);
   const [busy, setBusy] = useState(false);
   const [game, setGame] = useState<GameStateSnapshot | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -218,6 +220,10 @@ export default function App() {
       consumed.push(galleonHere.id);
       pushEffect({ x: col, y: row, kind: 'text', text: '+35 ₿', color: '#D4A346' });
       pushToast('Privateer Sloop neutralized Rogue Galleon (+35 sats bounty)', 'success');
+      void persist((state) => ({
+        ...state,
+        economy: { ...state.economy, raidersSunk: (state.economy.raidersSunk ?? 0) + 1 },
+      }));
     }
     if (consumed.length > 0) {
       setEntities((prev) => prev.filter((e) => !consumed.includes(e.id)));
@@ -335,11 +341,60 @@ export default function App() {
     const audit = gazetteAudit;
     const current = gameRef.current;
     if (!audit || !current) return;
+
+    // --- Mutineer resolution: bastion quell vs pillage ---
+    let mutineerTile: { col: number; row: number } | null = null;
+    let buildings = current.buildings;
+    let units = current.units;
+
+    const existingMutineer = current.units.find((u) => u.type === 'CORSAIR_MUTINEER');
+    if (existingMutineer) {
+      units = current.units.filter((u) => u.id !== existingMutineer.id);
+      mutineerTile = { col: existingMutineer.col, row: existingMutineer.row };
+      const bastion = buildings.find(
+        (b) => b.faction === 'player' && b.type === 'COASTAL_BASTION' && chebyshev(b.col, b.row, mutineerTile!.col, mutineerTile!.row) <= 1,
+      );
+      if (bastion) {
+        pushToast('Coastal Bastion quelled the mutiny!', 'success');
+        pushEffect({ x: bastion.col, y: bastion.row, kind: 'flash', color: '#E8D8A0' });
+        navigator.vibrate?.(40);
+      } else {
+        // Pillage: destroy 1 adjacent player building
+        const adjacent = buildings.filter(
+          (b) => b.faction === 'player' && chebyshev(b.col, b.row, mutineerTile!.col, mutineerTile!.row) === 1,
+        );
+        if (adjacent.length > 0) {
+          const victim = adjacent[Math.floor(Math.random() * adjacent.length)];
+          buildings = buildings.filter((b) => b.id !== victim.id);
+          pushToast(`Mutineers pillaged a ${BUILDING_SPEC[victim.type].label}!`, 'error');
+          pushEffect({ x: victim.col, y: victim.row, kind: 'flash', color: '#B85D3D' });
+          navigator.vibrate?.([60, 40, 60]);
+        }
+      }
+    }
+
+    // --- Mutineer spawn from this audit ---
+    if (audit.mutineerSpawn) {
+      units = [
+        ...units,
+        {
+          id: `unt_${Math.random().toString(36).slice(2, 9)}`,
+          type: 'CORSAIR_MUTINEER' as const,
+          faction: 'neutral' as const,
+          col: audit.mutineerSpawn.col,
+          row: audit.mutineerSpawn.row,
+          heading: 0,
+        },
+      ];
+    }
+
     const turn = current.turn + 1;
     const next: GameStateSnapshot = {
       ...current,
       turn,
-      phase: audit.netPop <= 0 ? 'ended' : 'playing',
+      phase: 'playing',
+      buildings,
+      units,
       economy: {
         ...current.economy,
         treasurySats: audit.netTreasury,
@@ -348,30 +403,75 @@ export default function App() {
         housingCapacity: audit.housingCapacity,
         unrestIndex: audit.newUnrest,
         victoryPoints: turn,
+        peakPopulation: Math.max(current.economy.peakPopulation ?? 0, audit.netPop),
+        raidersSunk: current.economy.raidersSunk ?? 0,
       },
       updatedAt: Date.now(),
     };
-    if (next.phase === 'ended') {
-      await recordMatchOutcome(next, 'defeat');
-    }
+
     await saveActiveGame(next);
     setGame(next);
     gameRef.current = next;
     setGazetteAudit(null);
+
+    // --- Campaign climax: no Turn 13 — open the Ledger of History ---
+    if (current.turn >= CAMPAIGN_TURNS) {
+      const score = scoreForCampaign(
+        next.economy.population,
+        next.economy.treasurySats,
+        next.buildings.filter((b) => b.faction === 'player').length,
+        next.economy.raidersSunk ?? 0,
+      );
+      const { rank, flavor } = rankForScore(score);
+      await recordCampaignResult({
+        date: new Date().toISOString(),
+        faction: 'P1',
+        finalScore: score,
+        rank,
+        turnsSurvived: CAMPAIGN_TURNS,
+        treasurySats: next.economy.treasurySats,
+        peakPop: next.economy.peakPopulation,
+      });
+      setVictoryStats({
+        peakPopulation: next.economy.peakPopulation,
+        finalTreasurySats: next.economy.treasurySats,
+        buildingCount: next.buildings.filter((b) => b.faction === 'player').length,
+        raidersSunk: next.economy.raidersSunk ?? 0,
+        finalScore: score,
+        rank,
+        rankFlavor: flavor,
+      });
+      return;
+    }
+
+    if (next.economy.population <= 0) {
+      next.phase = 'ended';
+      await recordMatchOutcome(next, 'defeat');
+      await saveActiveGame(next);
+      setGame(next);
+      gameRef.current = next;
+      return;
+    }
+
     resetClock();
     pushToast(`Turn ${turn} ratified — the gazette is printed`, 'gold');
   }
 
-  async function handleRestart() {
+  async function handleNewVoyage() {
     const fresh = createInitialGameState();
     await db.activeGame.put(fresh);
     setGame(fresh);
     gameRef.current = fresh;
+    setVictoryStats(null);
     setGazetteAudit(null);
     setSelectedItem(null);
     setSelectedVesselId(null);
     setTab('construct');
     resetClock();
+  }
+
+  async function handleRestart() {
+    await handleNewVoyage();
   }
 
   if (!isHydrated || !game) {
@@ -397,6 +497,7 @@ export default function App() {
       <PortraitOverlay />
       <ToastManager toasts={toasts} />
       {gazetteAudit && <TurnGazetteModal audit={gazetteAudit} onRatify={handleRatify} />}
+      {victoryStats && <VictoryModal stats={victoryStats} turnsSurvived={CAMPAIGN_TURNS} onNewVoyage={handleNewVoyage} />}
       {compactLandscape && <Hud turn={game.turn} economy={game.economy} />}
 
       {game.phase === 'ended' ? (

@@ -24,9 +24,12 @@ export type UnitType =
   | 'SQUALL'
   | 'TEMPEST'
   | 'FISH_SHOAL'
-  | 'ROGUE_GALLEON';
+  | 'ROGUE_GALLEON'
+  | 'CORSAIR_MUTINEER';
 
 export type GamePhase = 'playing' | 'ended';
+
+export const CAMPAIGN_TURNS = 12;
 
 export interface Coordinates {
   col: number;
@@ -60,6 +63,10 @@ export interface EconomyState {
   /** percent 0-100 */
   unrestIndex: number;
   victoryPoints: number;
+  /** highest population ever reached this campaign */
+  peakPopulation: number;
+  /** rogue galleons sunk by sloops or bastions this campaign */
+  raidersSunk: number;
 }
 
 export interface GameStateSnapshot {
@@ -82,6 +89,11 @@ export interface MatchHistoryRecord {
   victoryPoints: number;
   finalTreasurySats: number;
   turnsSurvived: number;
+  date?: string;
+  faction?: string;
+  finalScore?: number;
+  rank?: string;
+  peakPop?: number;
 }
 
 export interface PlayerSettings {
@@ -167,6 +179,11 @@ export const UNIT_SPEC: Record<UnitType, UnitSpec> = {
   ROGUE_GALLEON: {
     label: 'Rogue Galleon',
     description: 'Masterless treasure ship; seize it before your rival does.',
+    alignment: 'neutral',
+  },
+  CORSAIR_MUTINEER: {
+    label: 'Corsair Mutineer',
+    description: 'Rabble roused by unrest — quell them with a Coastal Bastion or lose a building.',
     alignment: 'neutral',
   },
 };

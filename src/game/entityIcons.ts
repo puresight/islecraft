@@ -1,4 +1,4 @@
-import { Sprout, Coins, Home, Shield, Leaf, Sailboat, Ship, Wind, CloudLightning, Fish, Skull, type LucideIcon } from 'lucide-react';
+import { Sprout, Coins, Home, Shield, Leaf, Sailboat, Ship, Swords, Wind, CloudLightning, Fish, Skull, type LucideIcon } from 'lucide-react';
 import { BuildingType, UnitType } from '@/types/game';
 
 export const BUILDING_ICON: Record<BuildingType, LucideIcon> = {
@@ -16,4 +16,5 @@ export const UNIT_ICON: Record<UnitType, LucideIcon> = {
   TEMPEST: CloudLightning,
   FISH_SHOAL: Fish,
   ROGUE_GALLEON: Skull,
+  CORSAIR_MUTINEER: Swords,
 };

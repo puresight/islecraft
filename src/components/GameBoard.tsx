@@ -88,6 +88,10 @@ function tooltipFor(
         break;
     }
   }
+
+  const mutineer = game.units.find((u) => u.type === 'CORSAIR_MUTINEER' && u.col === x && u.row === y);
+  if (mutineer) lines.push('Corsair Mutineer (Rabid rabble — quell with a bastion!)');
+
   return lines.join(' · ');
 }
 
@@ -262,8 +266,8 @@ export function GameBoard({
 
     game.buildings.forEach((b) => drawBuilding(ctx, b, cellW, cellH));
     game.units
-      .filter((u) => u.faction !== 'neutral')
-      .forEach((u) => drawUnit(ctx, u, cellW, cellH, u.id === vesselId));
+      .filter((u) => u.faction !== 'neutral' || u.type === 'CORSAIR_MUTINEER')
+      .forEach((u) => (u.type === 'CORSAIR_MUTINEER' ? drawMutineer(ctx, u, cellW, cellH) : drawUnit(ctx, u, cellW, cellH, u.id === vesselId)));
     // Live world entities pulse above everything
     dynamicRef.current.forEach((e) => drawDynamicEntity(ctx, e, cellW, cellH));
 
@@ -630,5 +634,38 @@ function drawUnit(ctx: CanvasRenderingContext2D, u: UnitEntity, cellW: number, c
       break;
     }
   }
+  ctx.restore();
+}
+
+function drawMutineer(ctx: CanvasRenderingContext2D, u: UnitEntity, cellW: number, cellH: number) {
+  const cx = (u.col + 0.5) * cellW;
+  const cy = (u.row + 0.5) * cellH;
+  const s = Math.min(cellW, cellH);
+
+  ctx.save();
+  // Ominous red menace aura
+  const menace = 0.5 + 0.5 * Math.sin(performance.now() / 320);
+  ctx.fillStyle = 'rgba(184, 93, 61, 0.25)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * (0.36 + menace * 0.06), 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crossed black cutlasses
+  ctx.strokeStyle = '#1A1210';
+  ctx.lineWidth = Math.max(2, s * 0.07);
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.2, cy - s * 0.18);
+  ctx.lineTo(cx + s * 0.2, cy + s * 0.14);
+  ctx.moveTo(cx + s * 0.2, cy - s * 0.18);
+  ctx.lineTo(cx - s * 0.2, cy + s * 0.14);
+  ctx.stroke();
+
+  // Skull-and-torch centerpiece
+  ctx.fillStyle = '#B85D3D';
+  ctx.beginPath();
+  ctx.arc(cx, cy - s * 0.02, s * 0.11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#E8D8A0';
+  ctx.fillRect(cx - s * 0.05, cy + s * 0.05, s * 0.1, s * 0.05);
   ctx.restore();
 }
