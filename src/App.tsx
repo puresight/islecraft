@@ -12,10 +12,11 @@ import { createInitialGameState } from '@/game/initialState';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import type { CommandTab } from '@/components/commandTabs';
+import { canPlaceItem, isBuildingType, itemCost } from '@/utils/placementRules';
 
 export default function App() {
   const [tab, setTab] = useState<CommandTab>('construct');
-  const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
+  const [selectedItem, setSelectedItem] = useState<BuildingType | UnitType | null>(null);
   const [lastReport, setLastReport] = useState<TurnReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [game, setGame] = useState<GameStateSnapshot | null>(null);
@@ -53,55 +54,57 @@ export default function App() {
     await saveActiveGame(next);
   }, []);
 
-  async function handleBuild(type: BuildingType, col: number, row: number) {
-    if (!game) return;
-    const spec = BUILDING_SPEC[type];
-    if (game.economy.treasurySats < spec.costSats) return;
-    await persist((state) => ({
-      ...state,
-      buildings: [
-        ...state.buildings,
-        {
-          id: `bld_${Math.random().toString(36).slice(2, 9)}`,
-          type,
-          faction: 'player',
-          col,
-          row,
-          level: 1,
-          builtOnTurn: state.turn,
-        },
-      ],
-      economy: { ...state.economy, treasurySats: state.economy.treasurySats - spec.costSats },
-    }));
-  }
-
   async function handleCellTap(col: number, row: number) {
-    if (!selectedBuilding || !game) return;
-    if (game.terrain[row]?.[col] !== 'ISLAND_1_SOIL') return;
-    if (game.buildings.some((b) => b.col === col && b.row === row)) return;
-    await handleBuild(selectedBuilding, col, row);
-    setSelectedBuilding(null);
-  }
+    const current = gameRef.current;
+    if (!current || !selectedItem || busy) return;
 
-  async function handleLaunch(type: UnitType) {
-    if (!game) return;
-    const cost = LAUNCH_COSTS[type] ?? 0;
-    if (game.economy.treasurySats < cost) return;
-    await persist((state) => ({
-      ...state,
-      units: [
-        ...state.units,
-        {
-          id: `unt_${Math.random().toString(36).slice(2, 9)}`,
-          type,
-          faction: 'player',
-          col: 3,
-          row: 8,
-          heading: 0,
-        },
-      ],
-      economy: { ...state.economy, treasurySats: state.economy.treasurySats - cost },
-    }));
+    const check = canPlaceItem(selectedItem, col, row, 'player', current);
+    if (!check.valid) return;
+
+    const cost = itemCost(selectedItem);
+    const isStructure = isBuildingType(selectedItem);
+
+    if (isStructure) {
+      navigator.vibrate?.(30);
+      await persist((state) => ({
+        ...state,
+        buildings: [
+          ...state.buildings,
+          {
+            id: `bld_${Math.random().toString(36).slice(2, 9)}`,
+            type: selectedItem as BuildingType,
+            faction: 'player',
+            col,
+            row,
+            level: 1,
+            builtOnTurn: state.turn,
+          },
+        ],
+        economy: { ...state.economy, treasurySats: state.economy.treasurySats - cost },
+      }));
+    } else {
+      navigator.vibrate?.(30);
+      await persist((state) => ({
+        ...state,
+        units: [
+          ...state.units,
+          {
+            id: `unt_${Math.random().toString(36).slice(2, 9)}`,
+            type: selectedItem as UnitType,
+            faction: 'player',
+            col,
+            row,
+            heading: 0,
+          },
+        ],
+        economy: { ...state.economy, treasurySats: state.economy.treasurySats - cost },
+      }));
+    }
+
+    // Stay selected for batch construction; drop the item once sats run dry
+    if (gameRef.current && gameRef.current.economy.treasurySats < cost) {
+      setSelectedItem(null);
+    }
   }
 
   async function handleEndTurn() {
@@ -127,7 +130,7 @@ export default function App() {
     setGame(fresh);
     gameRef.current = fresh;
     setLastReport(null);
-    setSelectedBuilding(null);
+    setSelectedItem(null);
     setTab('construct');
   }
 
@@ -143,9 +146,8 @@ export default function App() {
     tab,
     onTabChange: setTab,
     game,
-    selectedBuilding,
-    onSelectBuilding: setSelectedBuilding,
-    onLaunch: handleLaunch,
+    selectedItem,
+    onSelectItem: setSelectedItem,
     busy,
     onEndTurn: handleEndTurn,
   };
@@ -180,7 +182,9 @@ export default function App() {
               <div className="flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden p-1">
                 <GameBoard
                   state={game}
-                  placementActive={selectedBuilding !== null}
+                  placementActive={selectedItem !== null}
+                  activeFaction="player"
+                  selectedItem={selectedItem}
                   onCellTap={handleCellTap}
                   className="h-full max-h-full max-w-full"
                 />
@@ -193,7 +197,9 @@ export default function App() {
                 <div className="w-full max-w-full" style={{ aspectRatio: '29 / 16' }}>
                   <GameBoard
                     state={game}
-                    placementActive={selectedBuilding !== null}
+                    placementActive={selectedItem !== null}
+                    activeFaction="player"
+                    selectedItem={selectedItem}
                     onCellTap={handleCellTap}
                   />
                 </div>
@@ -206,8 +212,3 @@ export default function App() {
     </div>
   );
 }
-
-const LAUNCH_COSTS: Partial<Record<UnitType, number>> = {
-  FISHING_SCHOONER: 600,
-  PRIVATEER_SLOOP: 1400,
-};

@@ -1,21 +1,16 @@
 import { Wind, type LucideIcon } from 'lucide-react';
 import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
 import { BUILDING_ICON, UNIT_ICON } from '@/game/entityIcons';
+import { itemCost } from '@/utils/placementRules';
 import { formatSats } from '@/utils/format';
 import type { CommandTab } from './commandTabs';
-
-const LAUNCH_COST: Partial<Record<UnitType, number>> = {
-  FISHING_SCHOONER: 600,
-  PRIVATEER_SLOOP: 1400,
-};
 
 interface RightRailProps {
   tab: CommandTab;
   onTabChange: (tab: CommandTab) => void;
   game: GameStateSnapshot;
-  selectedBuilding: BuildingType | null;
-  onSelectBuilding: (type: BuildingType | null) => void;
-  onLaunch: (type: UnitType) => void;
+  selectedItem: BuildingType | UnitType | null;
+  onSelectItem: (type: BuildingType | UnitType | null) => void;
   busy: boolean;
   onEndTurn: () => void;
 }
@@ -31,7 +26,7 @@ interface ActionItem {
   icon: LucideIcon;
 }
 
-export function RightRail({ tab, onTabChange, game, selectedBuilding, onSelectBuilding, onLaunch, busy, onEndTurn }: RightRailProps) {
+export function RightRail({ tab, onTabChange, game, selectedItem, onSelectItem, busy, onEndTurn }: RightRailProps) {
   const items: ActionItem[] =
     tab === 'construct'
       ? (Object.keys(BUILDING_SPEC) as BuildingType[]).map((type) => {
@@ -42,24 +37,24 @@ export function RightRail({ tab, onTabChange, game, selectedBuilding, onSelectBu
             label: spec.label,
             cost: spec.costSats,
             affordable: game.economy.treasurySats >= spec.costSats,
-            active: selectedBuilding === type,
+            active: selectedItem === type,
             disabled: game.economy.treasurySats < spec.costSats,
-            onClick: () => onSelectBuilding(selectedBuilding === type ? null : type),
+            onClick: () => onSelectItem(selectedItem === type ? null : type),
             icon: Icon,
           };
         })
       : tab === 'launch'
         ? (['FISHING_SCHOONER', 'PRIVATEER_SLOOP'] as UnitType[]).map((type) => {
-            const cost = LAUNCH_COST[type] ?? 0;
+            const cost = itemCost(type);
             const Icon = UNIT_ICON[type];
             return {
               key: type,
               label: UNIT_SPEC[type].label,
               cost,
               affordable: game.economy.treasurySats >= cost,
-              active: false,
+              active: selectedItem === type,
               disabled: game.economy.treasurySats < cost,
-              onClick: () => onLaunch(type),
+              onClick: () => onSelectItem(selectedItem === type ? null : type),
               icon: Icon,
             };
           })
@@ -103,8 +98,8 @@ export function RightRail({ tab, onTabChange, game, selectedBuilding, onSelectBu
             Victory points: <span className="font-mono text-parchment">{game.economy.victoryPoints}</span>
           </p>
           <p className="mt-2 text-foam/60">
-            {selectedBuilding
-              ? 'Tap a brass-highlighted soil tile on the isle to place your structure.'
+            {selectedItem
+              ? 'Tap an emerald-highlighted tile on the isle to place your structure.'
               : 'Select a structure above, then tap the map to build.'}
           </p>
         </div>

@@ -3,12 +3,8 @@ import { Wind, CloudLightning, CloudRain, Sun, Sprout, Sailboat, ScrollText, Che
 import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
 import { BUILDING_ICON, UNIT_ICON } from '@/game/entityIcons';
 import { clampPercent, formatSats } from '@/utils/format';
+import { itemCost } from '@/utils/placementRules';
 import type { CommandTab } from './commandTabs';
-
-const LAUNCH_COST: Partial<Record<UnitType, number>> = {
-  FISHING_SCHOONER: 600,
-  PRIVATEER_SLOOP: 1400,
-};
 
 const TAB_META: Array<{ id: CommandTab; label: string; icon: LucideIcon }> = [
   { id: 'construct', label: 'Construct', icon: Sprout },
@@ -30,9 +26,8 @@ interface CommandConsoleProps {
   tab: CommandTab;
   onTabChange: (tab: CommandTab) => void;
   game: GameStateSnapshot;
-  selectedBuilding: BuildingType | null;
-  onSelectBuilding: (type: BuildingType | null) => void;
-  onLaunch: (type: UnitType) => void;
+  selectedItem: BuildingType | UnitType | null;
+  onSelectItem: (type: BuildingType | UnitType | null) => void;
   busy: boolean;
   onEndTurn: () => void;
 }
@@ -49,7 +44,7 @@ interface CardItem {
 }
 
 function buildCards(props: CommandConsoleProps): CardItem[] {
-  const { tab, game, selectedBuilding, onSelectBuilding, onLaunch } = props;
+  const { tab, game, selectedItem, onSelectItem } = props;
   if (tab === 'construct') {
     return (Object.keys(BUILDING_SPEC) as BuildingType[]).map((type) => {
       const spec = BUILDING_SPEC[type];
@@ -60,15 +55,15 @@ function buildCards(props: CommandConsoleProps): CardItem[] {
         description: spec.effect,
         cost: spec.costSats,
         affordable: game.economy.treasurySats >= spec.costSats,
-        active: selectedBuilding === type,
-        onClick: () => onSelectBuilding(selectedBuilding === type ? null : type),
+        active: selectedItem === type,
+        onClick: () => onSelectItem(selectedItem === type ? null : type),
         icon: Icon,
       };
     });
   }
   if (tab === 'launch') {
     return (['FISHING_SCHOONER', 'PRIVATEER_SLOOP'] as UnitType[]).map((type) => {
-      const cost = LAUNCH_COST[type] ?? 0;
+      const cost = itemCost(type);
       const Icon = UNIT_ICON[type];
       return {
         key: type,
@@ -76,8 +71,8 @@ function buildCards(props: CommandConsoleProps): CardItem[] {
         description: UNIT_SPEC[type].description,
         cost,
         affordable: game.economy.treasurySats >= cost,
-        active: false,
-        onClick: () => onLaunch(type),
+        active: selectedItem === type,
+        onClick: () => onSelectItem(selectedItem === type ? null : type),
         icon: Icon,
       };
     });
@@ -340,7 +335,7 @@ function DefaultBody(props: CommandConsoleProps & { stage: TrayStage; onStageCha
 }
 
 function ExpandedBody(props: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
-  const { tab, onTabChange, game, selectedBuilding } = props;
+  const { tab, onTabChange, game, selectedItem } = props;
   const cards = buildCards(props);
   return (
     <div className="flex min-h-0 flex-1 gap-3 px-3 pb-2">
@@ -374,8 +369,8 @@ function ExpandedBody(props: CommandConsoleProps & { stage: TrayStage; onStageCh
           {tab === 'status' ? (
             <div className="grid h-full place-items-center rounded-lg border border-rim/50 bg-ocean/30 p-4 text-center">
               <p className="text-sm text-foam/80">
-                {selectedBuilding
-                  ? 'Tap a brass-highlighted soil tile on your isle to place the structure.'
+                {selectedItem
+                  ? 'Tap an emerald-highlighted tile on your isle to place the structure.'
                   : 'Pick a category on the left to review construction or fleet options. Territory intelligence lives on the right.'}
               </p>
             </div>
