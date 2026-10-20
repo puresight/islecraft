@@ -127,7 +127,7 @@ export function CommandConsole({ tab, onTabChange, game, selectedBuilding, onSel
         : [];
 
   return (
-    <section className="grid min-h-0 flex-1 grid-cols-[minmax(150px,1fr)_2.4fr_minmax(180px,1.1fr)] gap-2 overflow-hidden px-4 pb-2">
+    <section className="grid h-full min-h-0 grid-cols-[minmax(150px,1fr)_2.4fr_minmax(180px,1.1fr)] gap-2 overflow-hidden">
       {/* Left column: action selection */}
       <div className="flex min-h-0 flex-col gap-1.5" role="tablist" aria-label="Command categories">
         <p className="text-[10px] font-bold uppercase tracking-widest text-foam/60">Command</p>

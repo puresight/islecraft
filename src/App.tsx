@@ -186,13 +186,23 @@ export default function App() {
               <RightRail {...railProps} />
             </>
           ) : (
-            <div className="flex min-h-0 w-full flex-col">
-              <div className="flex w-full justify-center px-4 pt-2">
-                <div className="w-full max-w-5xl" style={{ aspectRatio: '29 / 16', maxHeight: '50vh' }}>
-                  <BoardGrid state={game} placementActive={selectedBuilding !== null} onCellTap={handleCellTap} />
+            <div className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden p-2">
+              <div className="flex min-h-0 w-full flex-shrink items-center justify-center">
+                <div
+                  className="w-full max-w-full"
+                  style={{ maxWidth: 'calc(52vh * 29 / 16)', aspectRatio: '29 / 16' }}
+                >
+                  <BoardGrid
+                    state={game}
+                    placementActive={selectedBuilding !== null}
+                    onCellTap={handleCellTap}
+                    className="h-full max-h-full w-full max-w-full"
+                  />
                 </div>
               </div>
-              <CommandConsole {...railProps} />
+              <div className="min-h-0 w-full flex-1 overflow-hidden">
+                <CommandConsole {...railProps} />
+              </div>
             </div>
           )}
         </main>
