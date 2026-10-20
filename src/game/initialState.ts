@@ -1,9 +1,18 @@
 import {
   Building,
   GameStateSnapshot,
+  TerrainType,
   UnitEntity,
 } from '@/types/game';
-import { buildTerrainGrid } from './terrain';
+import { INITIAL_MAP, TileType } from '@/constants/mapData';
+
+const TERRAIN_BY_TILE: Record<TileType, TerrainType> = {
+  [TileType.DEEP_SEA]: 'DEEP_SEA',
+  [TileType.SHALLOW_WATER]: 'SHALLOW_WATER',
+  [TileType.P1_TERRITORY]: 'ISLAND_1_SOIL',
+  [TileType.P2_TERRITORY]: 'ISLAND_2_SOIL',
+  [TileType.MOUNTAIN]: 'MOUNTAIN',
+};
 
 const makeId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
@@ -36,7 +45,7 @@ export function createInitialGameState(): GameStateSnapshot {
     turn: 1,
     createdAt: now,
     updatedAt: now,
-    terrain: buildTerrainGrid(),
+    terrain: INITIAL_MAP.map((row) => row.map((tile) => TERRAIN_BY_TILE[tile])),
     buildings: initialBuildings(),
     units: initialUnits(),
     economy: {

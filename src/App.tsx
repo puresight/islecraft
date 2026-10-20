@@ -1,7 +1,7 @@
 import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC } from '@/types/game';
 import { advanceTurn, TurnReport } from '@/game/turnEngine';
 import { Hud } from '@/components/Hud';
-import { BoardGrid } from '@/components/BoardGrid';
+import { GameBoard } from '@/components/GameBoard';
 import { PortraitOverlay } from '@/components/PortraitOverlay';
 import { RightRail } from '@/components/RightRail';
 import { CommandConsole } from '@/components/CommandConsole';
@@ -178,7 +178,7 @@ export default function App() {
           {compactLandscape ? (
             <>
               <div className="flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden p-1">
-                <BoardGrid
+                <GameBoard
                   state={game}
                   placementActive={selectedBuilding !== null}
                   onCellTap={handleCellTap}
@@ -191,11 +191,10 @@ export default function App() {
             <div className="relative h-full w-full flex-1 overflow-hidden">
               <div className="relative flex h-full w-full flex-1 flex-col items-center justify-start overflow-hidden pt-1">
                 <div className="w-full max-w-full" style={{ aspectRatio: '29 / 16' }}>
-                  <BoardGrid
+                  <GameBoard
                     state={game}
                     placementActive={selectedBuilding !== null}
                     onCellTap={handleCellTap}
-                    className="h-full max-h-full w-full max-w-full"
                   />
                 </div>
               </div>
