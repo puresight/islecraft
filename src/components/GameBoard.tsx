@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Building, BuildingType, Faction, GameStateSnapshot, UnitEntity, UnitType } from '@/types/game';
+import { DynamicEntity, SeaEntityType } from '@/types/entities';
 import { INITIAL_MAP, MAP_COLS, MAP_ROWS, TileType } from '@/constants/mapData';
 import { canPlaceItem, isBuildingType } from '@/utils/placementRules';
 
@@ -32,11 +33,19 @@ const STRUCTURE_COLORS: Record<BuildingType, string> = {
   SETTLER_QUARTERS: '#A2703F',
 };
 
+const DYNAMIC_COLORS: Record<SeaEntityType, string> = {
+  SQUALL: '#78909C',
+  TEMPEST: '#B0BEC5',
+  FISH_SHOAL: '#90A4AE',
+  ROGUE_GALLEON: '#263238',
+};
+
 interface GameBoardProps {
   state: GameStateSnapshot;
   placementActive: boolean;
   activeFaction: Faction;
   selectedItem: BuildingType | UnitType | null;
+  dynamicEntities: DynamicEntity[];
   onCellTap: (col: number, row: number) => void;
   className?: string;
 }
@@ -46,6 +55,7 @@ export function GameBoard({
   placementActive,
   activeFaction,
   selectedItem,
+  dynamicEntities,
   onCellTap,
   className = '',
 }: GameBoardProps) {
@@ -62,6 +72,8 @@ export function GameBoard({
   itemRef.current = selectedItem;
   const hoverRef = useRef(hoveredTile);
   hoverRef.current = hoveredTile;
+  const dynamicRef = useRef(dynamicEntities);
+  dynamicRef.current = dynamicEntities;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -151,7 +163,11 @@ export function GameBoard({
     }
 
     game.buildings.forEach((b) => drawBuilding(ctx, b, cellW, cellH));
-    game.units.forEach((u) => drawUnit(ctx, u, cellW, cellH));
+    game.units
+      .filter((u) => u.faction !== 'neutral')
+      .forEach((u) => drawUnit(ctx, u, cellW, cellH));
+    // Live world entities pulse above everything
+    dynamicRef.current.forEach((e) => drawDynamicEntity(ctx, e, cellW, cellH));
   }, []);
 
   useEffect(() => {
@@ -163,6 +179,8 @@ export function GameBoard({
     observer.observe(canvas);
     const onResize = () => draw();
     window.addEventListener('resize', onResize);
+    const onEntities = () => draw();
+    window.addEventListener('islecraft-entities-tick', onEntities);
 
     // Pulsation loop only while the pointer rests on the chart
     let raf = 0;
@@ -176,9 +194,10 @@ export function GameBoard({
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('islecraft-entities-tick', onEntities);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [draw, state, placementActive, selectedItem, activeFaction, hoveredTile]);
+  }, [draw, state, placementActive, selectedItem, activeFaction, hoveredTile, dynamicEntities]);
 
   const tileFromEvent = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -305,6 +324,86 @@ function drawBuilding(ctx: CanvasRenderingContext2D, b: Building, cellW: number,
       ctx.closePath();
       ctx.fill();
       ctx.fillRect(cx - s * 0.22, cy + s * 0.08, s * 0.44, s * 0.2);
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawDynamicEntity(ctx: CanvasRenderingContext2D, e: DynamicEntity, cellW: number, cellH: number) {
+  const cx = (e.x + 0.5) * cellW;
+  const cy = (e.y + 0.5) * cellH;
+  const s = Math.min(cellW, cellH);
+  const dir = e.direction === 180 ? -1 : 1;
+
+  ctx.save();
+  switch (e.type) {
+    case 'SQUALL': {
+      // Soft cumulus silhouette
+      ctx.fillStyle = DYNAMIC_COLORS.SQUALL;
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath();
+      ctx.arc(cx - s * 0.14, cy + s * 0.06, s * 0.15, 0, Math.PI * 2);
+      ctx.arc(cx + s * 0.02, cy - s * 0.06, s * 0.19, 0, Math.PI * 2);
+      ctx.arc(cx + s * 0.18, cy + s * 0.08, s * 0.13, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'TEMPEST': {
+      // Swirling vortex
+      ctx.strokeStyle = DYNAMIC_COLORS.TEMPEST;
+      ctx.lineWidth = Math.max(1.5, s * 0.07);
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 4; a += 0.25) {
+        const r = s * 0.06 + (a / (Math.PI * 4)) * s * 0.26;
+        const px = cx + Math.cos(a) * r;
+        const py = cy + Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'FISH_SHOAL': {
+      // Cluster of small silver fish
+      ctx.fillStyle = DYNAMIC_COLORS.FISH_SHOAL;
+      const fish: Array<[number, number]> = [
+        [-0.14, -0.08],
+        [0.1, -0.12],
+        [-0.02, 0.06],
+        [0.16, 0.1],
+      ];
+      fish.forEach(([fx, fy]) => {
+        const fxp = cx + fx * s;
+        const fyp = cy + fy * s;
+        ctx.beginPath();
+        ctx.ellipse(fxp, fyp, s * 0.07, s * 0.035, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(fxp - dir * s * 0.07, fyp);
+        ctx.lineTo(fxp - dir * s * 0.11, fyp - s * 0.03);
+        ctx.lineTo(fxp - dir * s * 0.11, fyp + s * 0.03);
+        ctx.closePath();
+        ctx.fill();
+      });
+      break;
+    }
+    case 'ROGUE_GALLEON': {
+      // Black-sailed pirate ship
+      ctx.fillStyle = DYNAMIC_COLORS.ROGUE_GALLEON;
+      ctx.beginPath();
+      ctx.moveTo(cx - dir * s * 0.2, cy + s * 0.12);
+      ctx.lineTo(cx + dir * s * 0.2, cy + s * 0.12);
+      ctx.lineTo(cx + dir * s * 0.11, cy + s * 0.24);
+      ctx.lineTo(cx - dir * s * 0.13, cy + s * 0.24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.28);
+      ctx.lineTo(cx, cy + s * 0.12);
+      ctx.lineTo(cx + dir * s * 0.22, cy + s * 0.03);
+      ctx.closePath();
+      ctx.fill();
       break;
     }
   }

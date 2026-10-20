@@ -30,6 +30,7 @@ interface CommandConsoleProps {
   onSelectItem: (type: BuildingType | UnitType | null) => void;
   busy: boolean;
   onEndTurn: () => void;
+  secondsLeft: number;
 }
 
 interface CardItem {
@@ -162,7 +163,7 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
   );
 }
 
-function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
+function DrawerHandle({ stage, onStageChange, game, secondsLeft }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
   const track = useRef<{ id: number; startY: number; stage: TrayStage } | null>(null);
 
   const step = (dir: 1 | -1) =>
@@ -215,6 +216,14 @@ function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { st
         <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold text-foam/90">
           <Hourglass className="h-3.5 w-3.5 text-foam/70" aria-hidden /> Year 1781 · Turn {game.turn}
         </span>
+        <span
+          className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] font-bold ${
+            secondsLeft <= 10 ? 'bg-danger/20 text-danger' : 'bg-abyss/60 text-ok'
+          }`}
+          aria-label={`${secondsLeft} seconds remaining this turn`}
+        >
+          {formatClock(secondsLeft)}
+        </span>
       </div>
 
       {/* Zone 2 — tactile drag handle, centered */}
@@ -246,6 +255,12 @@ function DrawerHandle({ stage, onStageChange, game }: CommandConsoleProps & { st
       </div>
     </div>
   );
+}
+
+function formatClock(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function HeaderMeter({ label, value, max, tone }: { label: string; value: number; max: number; tone: string }) {

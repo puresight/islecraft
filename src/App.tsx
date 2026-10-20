@@ -7,6 +7,7 @@ import { RightRail } from '@/components/RightRail';
 import { CommandConsole } from '@/components/CommandConsole';
 import type { TrayStage } from '@/components/CommandConsole';
 import { useCompactLandscape } from '@/hooks/useMediaQuery';
+import { useSimulationLoop } from '@/hooks/useSimulationLoop';
 import { db, saveActiveGame, recordMatchOutcome } from '@/db/gameDatabase';
 import { createInitialGameState } from '@/game/initialState';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -124,6 +125,18 @@ export default function App() {
     }
   }
 
+  const handleTurnAdvance = useCallback(async (next: GameStateSnapshot) => {
+    setGame(next);
+    gameRef.current = next;
+    await saveActiveGame(next);
+  }, []);
+
+  const { secondsLeft, entities } = useSimulationLoop({
+    game,
+    onTurnAdvance: handleTurnAdvance,
+    enabled: isHydrated && game?.phase === 'playing' && !busy,
+  });
+
   async function handleRestart() {
     const fresh = createInitialGameState();
     await db.activeGame.put(fresh);
@@ -185,6 +198,7 @@ export default function App() {
                   placementActive={selectedItem !== null}
                   activeFaction="player"
                   selectedItem={selectedItem}
+                  dynamicEntities={entities}
                   onCellTap={handleCellTap}
                   className="h-full max-h-full max-w-full"
                 />
@@ -200,11 +214,12 @@ export default function App() {
                     placementActive={selectedItem !== null}
                     activeFaction="player"
                     selectedItem={selectedItem}
+                    dynamicEntities={entities}
                     onCellTap={handleCellTap}
                   />
                 </div>
               </div>
-              <CommandConsole {...railProps} stage={trayStage} onStageChange={setTrayStage} />
+              <CommandConsole {...railProps} stage={trayStage} onStageChange={setTrayStage} secondsLeft={secondsLeft} />
             </div>
           )}
         </main>
