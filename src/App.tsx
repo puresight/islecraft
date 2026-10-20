@@ -1,5 +1,5 @@
 import { BuildingType, GameStateSnapshot, UnitType } from '@/types/game';
-import { advanceTurn, TurnReport } from '@/game/turnEngine';
+import { calculateTurnAudit, TurnAuditReport } from '@/utils/economyEngine';
 import { Hud } from '@/components/Hud';
 import { GameBoard } from '@/components/GameBoard';
 import { PortraitOverlay } from '@/components/PortraitOverlay';
@@ -17,6 +17,7 @@ import type { CommandTab } from '@/components/commandTabs';
 import { canPlaceItem, isBuildingType, itemCost } from '@/utils/placementRules';
 import { DynamicEntity } from '@/types/entities';
 import { ToastManager, useToasts } from '@/components/ToastManager';
+import { TurnGazetteModal } from '@/components/TurnGazetteModal';
 import { BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
 
 export interface BoardEffect {
@@ -43,7 +44,7 @@ export default function App() {
   const [tab, setTab] = useState<CommandTab>('construct');
   const [selectedItem, setSelectedItem] = useState<BuildingType | UnitType | null>(null);
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
-  const [lastReport, setLastReport] = useState<TurnReport | null>(null);
+  const [gazetteAudit, setGazetteAudit] = useState<TurnAuditReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [game, setGame] = useState<GameStateSnapshot | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -243,24 +244,11 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const handleTurnAdvance = useCallback(
-    async (next: GameStateSnapshot) => {
-      setGame(next);
-      gameRef.current = next;
-      await saveActiveGame(next);
-    },
-    [],
-  );
-
-  const { secondsLeft, entities, setEntities, resetClock } = useSimulationLoop({
-    game,
-    onTurnAdvance: handleTurnAdvance,
-    enabled: isHydrated && game?.phase === 'playing' && !busy,
-    onHeartbeat: handleHeartbeat,
-  });
-
-  const entitiesRef = useRef(entities);
-  entitiesRef.current = entities;
+  const handleTurnExpire = useCallback(() => {
+    const current = gameRef.current;
+    if (!current || current.phase !== 'playing') return;
+    setGazetteAudit(calculateTurnAudit(current));
+  }, []);
 
   function handleHeartbeat() {
     const current = gameRef.current;
@@ -321,22 +309,57 @@ export default function App() {
     }
   }
 
+  const { secondsLeft, entities, setEntities, resetClock } = useSimulationLoop({
+    game,
+    paused: gazetteAudit !== null,
+    onTurnExpire: handleTurnExpire,
+    enabled: isHydrated && game?.phase === 'playing' && !busy,
+    onHeartbeat: handleHeartbeat,
+  });
+
+  const entitiesRef = useRef(entities);
+  entitiesRef.current = entities;
+
   async function handleEndTurn() {
-    if (!game || busy) return;
+    const current = gameRef.current;
+    if (!current || busy || gazetteAudit) return;
     setBusy(true);
     try {
-      const { state, report } = advanceTurn(game);
-      setLastReport(report);
-      if (state.phase === 'ended') {
-        await recordMatchOutcome(state, 'defeat');
-      }
-      await saveActiveGame(state);
-      setGame(state);
-      gameRef.current = state;
-      resetClock();
+      setGazetteAudit(calculateTurnAudit(current));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleRatify() {
+    const audit = gazetteAudit;
+    const current = gameRef.current;
+    if (!audit || !current) return;
+    const turn = current.turn + 1;
+    const next: GameStateSnapshot = {
+      ...current,
+      turn,
+      phase: audit.netPop <= 0 ? 'ended' : 'playing',
+      economy: {
+        ...current.economy,
+        treasurySats: audit.netTreasury,
+        foodReserves: audit.netFood,
+        population: audit.netPop,
+        housingCapacity: audit.housingCapacity,
+        unrestIndex: audit.newUnrest,
+        victoryPoints: turn,
+      },
+      updatedAt: Date.now(),
+    };
+    if (next.phase === 'ended') {
+      await recordMatchOutcome(next, 'defeat');
+    }
+    await saveActiveGame(next);
+    setGame(next);
+    gameRef.current = next;
+    setGazetteAudit(null);
+    resetClock();
+    pushToast(`Turn ${turn} ratified — the gazette is printed`, 'gold');
   }
 
   async function handleRestart() {
@@ -344,7 +367,7 @@ export default function App() {
     await db.activeGame.put(fresh);
     setGame(fresh);
     gameRef.current = fresh;
-    setLastReport(null);
+    setGazetteAudit(null);
     setSelectedItem(null);
     setSelectedVesselId(null);
     setTab('construct');
@@ -373,6 +396,7 @@ export default function App() {
     <div className="flex h-full flex-col overflow-hidden bg-charcoal">
       <PortraitOverlay />
       <ToastManager toasts={toasts} />
+      {gazetteAudit && <TurnGazetteModal audit={gazetteAudit} onRatify={handleRatify} />}
       {compactLandscape && <Hud turn={game.turn} economy={game.economy} />}
 
       {game.phase === 'ended' ? (
