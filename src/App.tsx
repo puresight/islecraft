@@ -187,11 +187,8 @@ export default function App() {
             </>
           ) : (
             <div className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden p-2">
-              <div className="flex min-h-0 w-full flex-shrink items-center justify-center">
-                <div
-                  className="w-full max-w-full"
-                  style={{ maxWidth: 'calc(52vh * 29 / 16)', aspectRatio: '29 / 16' }}
-                >
+              <div className="flex w-full flex-none items-center justify-center overflow-hidden">
+                <div className="aspect-[29/16] max-h-full w-full">
                   <BoardGrid
                     state={game}
                     placementActive={selectedBuilding !== null}
