@@ -13,7 +13,7 @@ function Meter({ label, value, max, tone }: { label: string; value: number; max:
     <div className="flex min-w-[72px] flex-col justify-center">
       <span className="text-[9px] font-medium uppercase tracking-widest text-foam/70">{label}</span>
       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-abyss">
-        <div className={`h-full rounded-full transition-all duration-500 ${tone}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full transition-[width] duration-500 ${tone}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

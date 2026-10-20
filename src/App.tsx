@@ -493,7 +493,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-charcoal">
+    <div className="flex h-full w-screen flex-col overflow-hidden bg-charcoal pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)]">
       <PortraitOverlay />
       <ToastManager toasts={toasts} />
       {gazetteAudit && <TurnGazetteModal audit={gazetteAudit} onRatify={handleRatify} />}

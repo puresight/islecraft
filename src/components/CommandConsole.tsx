@@ -96,7 +96,7 @@ function ForecastPanel({ game }: { game: GameStateSnapshot }) {
           <p className="text-[10px] uppercase tracking-wide text-foam/60">Island Stability</p>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-abyss">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${stability >= 60 ? 'bg-ok' : stability >= 30 ? 'bg-warn' : 'bg-danger'}`}
+              className={`h-full rounded-full transition-[width] duration-500 ${stability >= 60 ? 'bg-ok' : stability >= 30 ? 'bg-warn' : 'bg-danger'}`}
               style={{ width: `${stability}%` }}
             />
           </div>
@@ -150,7 +150,7 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
   const { stage } = props;
   return (
     <div
-      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-slate-700/60 bg-slate-950/85 shadow-2xl backdrop-blur-md transition-all duration-200 ease-out ${STAGE_HEIGHT[stage]}`}
+      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-slate-700/60 bg-slate-950/85 shadow-2xl backdrop-blur-md transition-[height] duration-200 ease-out ${STAGE_HEIGHT[stage]}`}
     >
       <DrawerHandle {...props} />
       {stage !== 'peek' && <DangerBanners game={props.game} />}
