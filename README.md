@@ -1,3 +1,3 @@
-# islecraft
+# Islecraft
 
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-k1nq7m55)
+- [architecture](./architecture.md)
