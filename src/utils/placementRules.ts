@@ -1,27 +1,7 @@
-import { BuildingType, Faction, GameStateSnapshot, UnitType, BUILDING_SPEC } from '@/types/game';
+import { Faction, GameStateSnapshot, BuildingType, UnitType } from '@/types/game';
 import { INITIAL_MAP, MAP_COLS, MAP_ROWS, TileType } from '@/constants/mapData';
-
-const LAUNCH_COST: Partial<Record<UnitType, number>> = {
-  FISHING_SCHOONER: 600,
-  PRIVATEER_SLOOP: 1400,
-};
-
-const BUILDING_TYPES: BuildingType[] = [
-  'PLANTATION',
-  'TRADING_POST',
-  'SETTLER_QUARTERS',
-  'COASTAL_BASTION',
-  'APOTHECARY',
-];
-
-export function isBuildingType(item: BuildingType | UnitType): item is BuildingType {
-  return BUILDING_TYPES.includes(item as BuildingType);
-}
-
-export function itemCost(item: BuildingType | UnitType): number {
-  if (isBuildingType(item)) return BUILDING_SPEC[item].costSats;
-  return LAUNCH_COST[item] ?? Infinity;
-}
+import { isBuildingType, itemCost } from '@/constants/blueprints';
+import { neighborsOf } from '@/utils/coordinates';
 
 export interface PlacementCheck {
   valid: boolean;
@@ -32,17 +12,6 @@ const HOME_TILE: Record<Faction, TileType> = {
   player: TileType.P1_TERRITORY,
   rival: TileType.P2_TERRITORY,
 };
-
-function neighborsOf(x: number, y: number): Array<[number, number]> {
-  const list: Array<[number, number]> = [];
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      list.push([x + dx, y + dy]);
-    }
-  }
-  return list;
-}
 
 function tileAt(x: number, y: number): TileType | undefined {
   if (x < 0 || x >= MAP_COLS || y < 0 || y >= MAP_ROWS) return undefined;

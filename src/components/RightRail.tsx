@@ -1,9 +1,10 @@
 import { Wind, Newspaper, type LucideIcon } from 'lucide-react';
-import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
+import { BuildingType, GameStateSnapshot, UnitType } from '@/types/game';
 import { BUILDING_ICON, UNIT_ICON } from '@/game/entityIcons';
-import { itemCost } from '@/utils/placementRules';
+import { BUILDING_BLUEPRINTS, UNIT_BLUEPRINTS, VESSEL_BLUEPRINTS } from '@/constants/blueprints';
 import { formatSats } from '@/utils/format';
 import type { CommandTab } from './commandTabs';
+import type { BuildableVesselType } from '@/constants/blueprints';
 
 interface RightRailProps {
   tab: CommandTab;
@@ -14,7 +15,7 @@ interface RightRailProps {
   busy: boolean;
   onEndTurn: () => void;
   /** Timestamp until which the newspaper button flashes (fresh dispatch ready). */
-  gazetteFlashing: boolean;
+  gazetteFlashUntil: number;
   onOpenGazette: () => void;
 }
 
@@ -29,11 +30,11 @@ interface ActionItem {
   icon: LucideIcon;
 }
 
-export function RightRail({ tab, onTabChange, game, selectedItem, onSelectItem, busy, onEndTurn, gazetteFlashing, onOpenGazette }: RightRailProps) {
+export function RightRail({ tab, onTabChange, game, selectedItem, onSelectItem, busy, onEndTurn, gazetteFlashUntil, onOpenGazette }: RightRailProps) {
   const items: ActionItem[] =
     tab === 'construct'
-      ? (Object.keys(BUILDING_SPEC) as BuildingType[]).map((type) => {
-          const spec = BUILDING_SPEC[type];
+      ? (Object.keys(BUILDING_BLUEPRINTS) as BuildingType[]).map((type) => {
+          const spec = BUILDING_BLUEPRINTS[type];
           const Icon = BUILDING_ICON[type];
           return {
             key: type,
@@ -47,12 +48,12 @@ export function RightRail({ tab, onTabChange, game, selectedItem, onSelectItem, 
           };
         })
       : tab === 'launch'
-        ? (['FISHING_SCHOONER', 'PRIVATEER_SLOOP'] as UnitType[]).map((type) => {
-            const cost = itemCost(type);
+        ? (['FISHING_SCHOONER', 'PRIVATEER_SLOOP'] as BuildableVesselType[]).map((type) => {
+            const cost = VESSEL_BLUEPRINTS[type].costSats;
             const Icon = UNIT_ICON[type];
             return {
               key: type,
-              label: UNIT_SPEC[type].label,
+              label: UNIT_BLUEPRINTS[type].label,
               cost,
               affordable: game.economy.treasurySats >= cost,
               active: selectedItem === type,
@@ -138,12 +139,12 @@ export function RightRail({ tab, onTabChange, game, selectedItem, onSelectItem, 
           aria-label="Open Settlement Report"
           onClick={onOpenGazette}
           className={`relative flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-md border border-rim/50 font-display text-xs font-bold uppercase tracking-widest transition-colors hover:bg-rim/20 ${
-            gazetteFlashing ? 'animate-pulse border-amber-400 text-amber-400' : 'text-foam'
+            Date.now() < gazetteFlashUntil ? 'animate-pulse border-amber-400 text-amber-400' : 'text-foam'
           }`}
         >
           <Newspaper className="h-4 w-4" aria-hidden />
           Dispatch
-          {gazetteFlashing && (
+          {Date.now() < gazetteFlashUntil && (
             <span
               className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-amber-400 shadow-[0_0_6px_2px_rgba(251,191,36,0.6)]"
               aria-hidden

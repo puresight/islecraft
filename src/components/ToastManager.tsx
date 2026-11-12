@@ -11,9 +11,9 @@ export interface Toast {
 const TONE_BORDER: Record<ToastTone, string> = {
   info: 'border-rim/60',
   success: 'border-[#34D399]/70',
-  gold: 'border-[#D4AF37]/70',
-  warn: 'border-[#D4A346]/70',
-  error: 'border-[#B85D3D]/70',
+  gold: 'border-[#F59E0B]/70',
+  warn: 'border-[#FBBF24]/70',
+  error: 'border-[#E05252]/70',
 };
 
 export function useToasts() {
@@ -39,11 +39,11 @@ function ToastItem({ toast }: { toast: Toast }) {
   return (
     <div
       role="status"
-      className={`pointer-events-none w-max max-w-[80vw] rounded-md border bg-[#111A1F]/95 px-3 py-1.5 shadow-panel transition-opacity duration-500 ${
+      className={`pointer-events-none w-max max-w-[80vw] rounded-md border bg-[#24333C]/95 px-3 py-1.5 shadow-panel transition-opacity duration-500 ${
         TONE_BORDER[toast.tone]
       } ${fading ? 'opacity-0' : 'opacity-100'}`}
     >
-      <p className="truncate text-[11px] font-semibold text-[#D8C596]">{toast.text}</p>
+      <p className="truncate text-[11px] font-semibold text-[#F8FAFC]">{toast.text}</p>
     </div>
   );
 }

@@ -5,36 +5,36 @@ export default {
     extend: {
       colors: {
         // UI chrome
-        abyss: '#0B1114',
-        charcoal: '#111A1F',
-        rim: '#3D545F',
+        abyss: '#1A262E',
+        charcoal: '#24333C',
+        rim: '#486273',
         // Ocean depth
-        ocean: '#16262E',
-        shallows: '#28444B',
+        ocean: '#365569',
+        shallows: '#5E93A3',
         // Land
-        sand: '#D8C596',
-        timber: '#4D6B53',
+        sand: '#F2E7CD',
+        timber: '#8A7968',
         // Factions
         terra: {
-          DEFAULT: '#B85D3D',
-          dark: '#9A4C32',
+          DEFAULT: '#C84630',
+          dark: '#A33623',
         },
         cobalt: {
-          DEFAULT: '#3A6B88',
-          light: '#4E85A6',
+          DEFAULT: '#2B6CB0',
+          light: '#4E85C6',
         },
         // Treasury
         brass: {
-          DEFAULT: '#D4A346',
-          dark: '#B08634',
+          DEFAULT: '#F59E0B',
+          dark: '#D97706',
         },
         // Text
-        parchment: '#E8E2CE',
-        foam: '#9FB4AC',
+        parchment: '#F8FAFC',
+        foam: '#CBD5E1',
         // Status
-        ok: '#6FA287',
-        warn: '#C98F3D',
-        danger: '#B85D3D',
+        ok: '#34D399',
+        warn: '#FBBF24',
+        danger: '#E05252',
       },
       fontFamily: {
         display: ['"Cinzel"', 'serif'],
@@ -42,8 +42,8 @@ export default {
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
-        panel: '0 2px 12px -2px rgba(5, 10, 13, 0.6)',
-        inset: 'inset 0 1px 0 rgba(232, 226, 206, 0.08)',
+        panel: '0 2px 12px -2px rgba(10, 18, 24, 0.55)',
+        inset: 'inset 0 1px 0 rgba(248, 250, 252, 0.1)',
       },
       keyframes: {
         'fade-up': {

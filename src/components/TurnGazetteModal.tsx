@@ -1,21 +1,16 @@
-import { AlertTriangle, Coins, Home, Scale, Sprout, Users, X } from 'lucide-react';
+import { AlertTriangle, Coins, Home, Scale, Sprout, Users } from 'lucide-react';
 import type { TurnAuditReport } from '@/utils/economyEngine';
+import { BASE_YEAR } from '@/types/game';
 
 interface TurnGazetteModalProps {
   audit: TurnAuditReport;
-  /** Dynamic campaign year shown in the masthead (base year + current turn). */
-  year: number;
-  /** Preview mode: mid-turn report with no ratification side effects. */
-  preview?: boolean;
-  onRatify: () => void;
-  /** Optional explicit close affordance (preview mode). */
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 const STABILITY_STYLES: Record<TurnAuditReport['stability'], { text: string; note: string; border: string }> = {
   Peaceful: { text: 'text-[#34D399]', note: 'The isle rests easy tonight.', border: 'border-[#34D399]/60' },
-  Agitated: { text: 'text-[#D4A346]', note: 'Grumbling in the taverns — mind the mob.', border: 'border-[#D4A346]/60' },
-  Mutinous: { text: 'text-[#B85D3D]', note: 'The crew grows dangerous. Act quickly.', border: 'border-[#B85D3D]/70' },
+  Agitated: { text: 'text-[#D97706]', note: 'Grumbling in the taverns — mind the mob.', border: 'border-[#F59E0B]/60' },
+  Mutinous: { text: 'text-[#C84630]', note: 'The crew grows dangerous. Act quickly.', border: 'border-[#C84630]/70' },
 };
 
 function LedgerRow({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -36,38 +31,24 @@ function SectionHeading({ icon, children }: { icon: React.ReactNode; children: R
   );
 }
 
-export function TurnGazetteModal({ audit, year, preview = false, onRatify, onClose }: TurnGazetteModalProps) {
+export function TurnGazetteModal({ audit, onClose }: TurnGazetteModalProps) {
   const stability = STABILITY_STYLES[audit.stability];
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[#16262E]/80 p-3 backdrop-blur-sm"
-      onClick={preview && onClose ? onClose : undefined}
-      role="presentation"
-    >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#365569]/80 p-3 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-lg border-2 border-[#B85D3D]/60 bg-[#D8C596] shadow-panel"
+        className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-lg border-2 border-[#C84630]/60 bg-[#F2E7CD] shadow-panel"
         role="dialog"
         aria-modal="true"
-        aria-label={preview ? `Colonial Dispatch preview, year ${year}, turn ${audit.turn}` : `Colonial Dispatch, turn ${audit.turn} settlement report`}
+        aria-label={`Colonial Dispatch, year ${BASE_YEAR + audit.turn} settlement report`}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="relative border-b-2 border-[#B85D3D]/40 px-5 pt-4 pb-3 text-center">
-          {preview && onClose && (
-            <button
-              type="button"
-              aria-label="Close Settlement Report"
-              onClick={onClose}
-              className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded text-abyss/70 transition-colors hover:bg-abyss/10 hover:text-abyss"
-            >
-              <X className="h-5 w-5" aria-hidden />
-            </button>
-          )}
-          <p className="font-display text-[10px] font-bold uppercase tracking-[0.35em] text-[#B85D3D]">
-            Colonial Dispatch · Year {year}
+        <header className="border-b-2 border-[#C84630]/40 px-5 pt-4 pb-3 text-center">
+          <p className="font-display text-[10px] font-bold uppercase tracking-[0.35em] text-[#C84630]">
+            Colonial Dispatch
           </p>
           <h2 className="mt-1 font-display text-lg font-bold text-abyss">
-            Turn {audit.turn} Settlement Report{preview ? ' (Preview)' : ''}
+            Year {BASE_YEAR + audit.turn} Settlement Report
           </h2>
         </header>
 
@@ -81,7 +62,7 @@ export function TurnGazetteModal({ audit, year, preview = false, onRatify, onClo
           <section>
             <SectionHeading icon={<Sprout className="h-3.5 w-3.5" aria-hidden />}>Agriculture & Stores</SectionHeading>
             <LedgerRow label="Harvested" value={`+${audit.foodHarvested} bbl`} tone="text-[#1a6b45]" />
-            <LedgerRow label="Consumed by settlers" value={`-${audit.foodConsumed} bbl`} tone="text-[#B85D3D]" />
+            <LedgerRow label="Consumed by settlers" value={`-${audit.foodConsumed} bbl`} tone="text-[#C84630]" />
             <LedgerRow label="Remaining in stores" value={`${audit.netFood.toLocaleString()} bbl`} />
           </section>
 
@@ -90,13 +71,13 @@ export function TurnGazetteModal({ audit, year, preview = false, onRatify, onClo
             <LedgerRow
               label="Births / losses"
               value={`${audit.popDelta >= 0 ? '+' : ''}${audit.popDelta}`}
-              tone={audit.popDelta >= 0 ? 'text-[#1a6b45]' : 'text-[#B85D3D]'}
+              tone={audit.popDelta >= 0 ? 'text-[#1a6b45]' : 'text-[#C84630]'}
             />
             <LedgerRow label="Total population" value={audit.netPop.toLocaleString()} />
             <LedgerRow
               label="Housing occupancy"
               value={audit.housingCapacity > 0 ? `${audit.housingOccupancy}%` : 'No quarters'}
-              tone={audit.housingOccupancy > 100 ? 'text-[#B85D3D]' : undefined}
+              tone={audit.housingOccupancy > 100 ? 'text-[#C84630]' : undefined}
             />
           </section>
 
@@ -118,21 +99,15 @@ export function TurnGazetteModal({ audit, year, preview = false, onRatify, onClo
               </ul>
             </section>
           )}
-
-          {preview && (
-            <p className="border-t border-abyss/20 pt-3 text-center text-[11px] italic text-abyss/60">
-              Mid-turn preview — projections only. The official audit prints at turn's end.
-            </p>
-          )}
         </div>
 
         <footer className="border-t border-abyss/20 px-5 pb-4 pt-3">
           <button
             type="button"
-            onClick={onRatify}
-            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-[#B85D3D] px-5 text-sm font-bold uppercase tracking-widest text-parchment shadow-panel transition-transform hover:brightness-110 active:scale-[0.98]"
+            onClick={onClose}
+            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-[#C84630] px-5 text-sm font-bold uppercase tracking-widest text-[#F8FAFC] shadow-panel transition-transform hover:brightness-110 active:scale-[0.98]"
           >
-            <Home className="h-4 w-4" aria-hidden /> {preview ? 'Resume Command' : 'Ratify & Resume Command'}
+            <Home className="h-4 w-4" aria-hidden /> Resume Command
           </button>
         </footer>
       </div>

@@ -1,6 +1,3 @@
-export const GRID_WIDTH = 29;
-export const GRID_HEIGHT = 16;
-
 export type TerrainType =
   | 'DEEP_SEA'
   | 'SHALLOW_WATER'
@@ -29,7 +26,36 @@ export type UnitType =
 
 export type GamePhase = 'playing' | 'ended';
 
-export const CAMPAIGN_TURNS = 12;
+export type GameMode = 'solo' | 'duel';
+
+/** In-world calendar year for campaign turn 1. */
+export const BASE_YEAR = 1780;
+
+/** Blue faction ledger, simulated by the Governor AI or duel bookkeeping. */
+export interface RivalEconomy {
+  population: number;
+  housingCapacity: number;
+  foodReserves: number;
+  treasurySats: number;
+}
+
+/** Per-turn vital signs captured for the retrospective charts. */
+export interface VitalSnapshot {
+  turn: number;
+  p1Pop: number;
+  p2Pop: number;
+  p1Sats: number;
+  p2Sats: number;
+  p1Food: number;
+  p2Food: number;
+}
+
+/** One recorded historical event for the retrospective chronicle. */
+export interface ChronicleEntry {
+  turn: number;
+  year: number;
+  text: string;
+}
 
 export interface Coordinates {
   col: number;
@@ -75,11 +101,16 @@ export interface GameStateSnapshot {
   turn: number;
   createdAt: number;
   updatedAt: number;
+  mode: GameMode;
+  /** MapId of the chart this campaign is played on. */
+  mapId: string;
   /** terrain[row][col] */
   terrain: TerrainType[][];
   buildings: Building[];
   units: UnitEntity[];
   economy: EconomyState;
+  rivalEconomy: RivalEconomy;
+  history: VitalSnapshot[];
 }
 
 export interface MatchHistoryRecord {
@@ -102,88 +133,10 @@ export interface PlayerSettings {
   hapticsEnabled: boolean;
   colorTheme: 'parchment' | 'midnight';
   controlScheme: 'touch' | 'pointer';
+  /** Turn clock length in seconds. */
+  turnSeconds: 45 | 60 | 90;
+  /** Total turns in the campaign. */
+  campaignTurns: 10 | 12 | 15;
+  /** Chart selected for the next voyage. */
+  mapId: string;
 }
-
-export interface BuildingSpec {
-  label: string;
-  description: string;
-  costSats: number;
-  effect: string;
-}
-
-export const BUILDING_SPEC: Record<BuildingType, BuildingSpec> = {
-  PLANTATION: {
-    label: 'Plantation',
-    description: 'Tilled fields and cane rows worked by your settlers.',
-    costSats: 800,
-    effect: '+30 food per turn',
-  },
-  TRADING_POST: {
-    label: 'Trading Post',
-    description: 'Harbor-side exchange where cargo is settled in sats.',
-    costSats: 1200,
-    effect: '+120 sats per turn',
-  },
-  SETTLER_QUARTERS: {
-    label: 'Settler Quarters',
-    description: 'Timber lodgings that shelter new arrivals to the isle.',
-    costSats: 1000,
-    effect: '+40 housing capacity',
-  },
-  COASTAL_BASTION: {
-    label: 'Coastal Bastion',
-    description: 'Cannon battery guarding the anchorage from raiders.',
-    costSats: 1500,
-    effect: '-5 unrest per turn',
-  },
-  APOTHECARY: {
-    label: 'Apothecary',
-    description: 'Herbalist infirmary tending the sick and wounded.',
-    costSats: 900,
-    effect: '-2 mortality per turn',
-  },
-};
-
-export interface UnitSpec {
-  label: string;
-  description: string;
-  alignment: UnitAlignment;
-}
-
-export const UNIT_SPEC: Record<UnitType, UnitSpec> = {
-  FISHING_SCHOONER: {
-    label: 'Fishing Schooner',
-    description: 'Working vessel that hauls in food when moored near shoals.',
-    alignment: 'player',
-  },
-  PRIVATEER_SLOOP: {
-    label: 'Privateer Sloop',
-    description: 'Fast armed raider that can strike rival shipping lanes.',
-    alignment: 'player',
-  },
-  SQUALL: {
-    label: 'Squall',
-    description: 'A brief violent gust front that scatters loose vessels.',
-    alignment: 'neutral',
-  },
-  TEMPEST: {
-    label: 'Tempest',
-    description: 'A towering storm system — heavy damage, slow to pass.',
-    alignment: 'neutral',
-  },
-  FISH_SHOAL: {
-    label: 'Fish Shoal',
-    description: 'Migrating schools that drift across the channel each turn.',
-    alignment: 'neutral',
-  },
-  ROGUE_GALLEON: {
-    label: 'Rogue Galleon',
-    description: 'Masterless treasure ship; seize it before your rival does.',
-    alignment: 'neutral',
-  },
-  CORSAIR_MUTINEER: {
-    label: 'Corsair Mutineer',
-    description: 'Rabble roused by unrest — quell them with a Coastal Bastion or lose a building.',
-    alignment: 'neutral',
-  },
-};

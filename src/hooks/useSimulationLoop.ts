@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DynamicEntity } from '@/types/entities';
-import { initialEntities, tickEntities } from '@/utils/entitySpawner';
+import { initialEntities } from '@/utils/entitySpawner';
+import { tickWorld } from '@/utils/simulationReducer';
 import { GameStateSnapshot } from '@/types/game';
 
-export const TURN_SECONDS = 60;
+const DEFAULT_TURN_SECONDS = 60;
 const HEARTBEAT_MS = 1500;
 
 interface SimulationLoopOptions {
@@ -15,14 +16,23 @@ interface SimulationLoopOptions {
   /** Runs on each 1.5s world pulse, after entities drift. */
   onHeartbeat?: () => void;
   enabled: boolean;
+  /** Turn clock length in seconds (settings-configurable). */
+  turnSeconds?: number;
 }
 
 /**
- * Real-time turn clock (60s) plus a 1.5s world heartbeat that drifts
+ * Real-time turn clock plus a 1.5s world heartbeat that drifts
  * weather and sea entities. Returns the visible countdown and live entities.
  */
-export function useSimulationLoop({ game, paused = false, onTurnExpire, onHeartbeat, enabled }: SimulationLoopOptions) {
-  const [secondsLeft, setSecondsLeft] = useState(TURN_SECONDS);
+export function useSimulationLoop({
+  game,
+  paused = false,
+  onTurnExpire,
+  onHeartbeat,
+  enabled,
+  turnSeconds = DEFAULT_TURN_SECONDS,
+}: SimulationLoopOptions) {
+  const [secondsLeft, setSecondsLeft] = useState(turnSeconds);
   const [entities, setEntities] = useState<DynamicEntity[]>(() => initialEntities());
   const gameRef = useRef(game);
   gameRef.current = game;
@@ -34,11 +44,11 @@ export function useSimulationLoop({ game, paused = false, onTurnExpire, onHeartb
   expireRef.current = onTurnExpire;
 
   useEffect(() => {
-    if (!enabled || paused || !game || game.phase !== 'playing') return;
+    if (!enabled || paused || !gameRef.current || gameRef.current.phase !== 'playing') return;
 
     const heartbeat = setInterval(() => {
       setEntities((prev) => {
-        const next = tickEntities(prev);
+        const next = tickWorld(prev);
         entitiesRef.current = next;
         // Notify world systems (bastions, harvesting) after the drift
         heartbeatRef.current?.();
@@ -58,9 +68,9 @@ export function useSimulationLoop({ game, paused = false, onTurnExpire, onHeartb
       clearInterval(heartbeat);
       clearInterval(clock);
     };
-  }, [enabled, paused, game?.id, game?.phase]);
+  }, [enabled, paused]);
 
-  const resetClock = useCallback(() => setSecondsLeft(TURN_SECONDS), []);
+  const resetClock = useCallback(() => setSecondsLeft(turnSeconds), [turnSeconds]);
 
   return { secondsLeft, entities, setEntities, resetClock };
 }

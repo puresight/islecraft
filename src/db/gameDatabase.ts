@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS: PlayerSettings = {
   hapticsEnabled: true,
   colorTheme: 'parchment',
   controlScheme: 'touch',
+  turnSeconds: 60,
+  campaignTurns: 12,
+  mapId: 'TWIN_REACHES',
 };
 
 export async function loadOrCreateSettings(): Promise<PlayerSettings> {

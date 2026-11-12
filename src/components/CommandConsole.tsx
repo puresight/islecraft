@@ -1,10 +1,11 @@
 import { useCallback, useRef } from 'react';
 import { Wind, CloudLightning, CloudRain, Sun, Sprout, Sailboat, ScrollText, ChevronUp, ChevronDown, Flag, Hourglass, Coins, Users, Wheat, Flame, Newspaper, type LucideIcon } from 'lucide-react';
-import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
+import { BuildingType, GameStateSnapshot, UnitType, BASE_YEAR } from '@/types/game';
 import { BUILDING_ICON, UNIT_ICON } from '@/game/entityIcons';
 import { clampPercent, formatSats } from '@/utils/format';
-import { itemCost } from '@/utils/placementRules';
+import { BUILDING_BLUEPRINTS, UNIT_BLUEPRINTS, VESSEL_BLUEPRINTS } from '@/constants/blueprints';
 import type { CommandTab } from './commandTabs';
+import type { BuildableVesselType } from '@/constants/blueprints';
 
 const TAB_META: Array<{ id: CommandTab; label: string; icon: LucideIcon }> = [
   { id: 'construct', label: 'Construct', icon: Sprout },
@@ -32,8 +33,10 @@ interface CommandConsoleProps {
   onEndTurn: () => void;
   secondsLeft: number;
   /** Timestamp until which the newspaper button flashes (fresh dispatch ready). */
-  gazetteFlashing: boolean;
+  gazetteFlashUntil: number;
   onOpenGazette: () => void;
+  /** Total turns in this campaign, for the Turn X/N readout. */
+  campaignTurns: number;
 }
 
 interface CardItem {
@@ -50,8 +53,8 @@ interface CardItem {
 function buildCards(props: CommandConsoleProps): CardItem[] {
   const { tab, game, selectedItem, onSelectItem } = props;
   if (tab === 'construct') {
-    return (Object.keys(BUILDING_SPEC) as BuildingType[]).map((type) => {
-      const spec = BUILDING_SPEC[type];
+    return (Object.keys(BUILDING_BLUEPRINTS) as BuildingType[]).map((type) => {
+      const spec = BUILDING_BLUEPRINTS[type];
       const Icon = BUILDING_ICON[type];
       return {
         key: type,
@@ -66,13 +69,16 @@ function buildCards(props: CommandConsoleProps): CardItem[] {
     });
   }
   if (tab === 'launch') {
-    return (['FISHING_SCHOONER', 'PRIVATEER_SLOOP'] as UnitType[]).map((type) => {
-      const cost = itemCost(type);
+    return ([
+      'FISHING_SCHOONER',
+      'PRIVATEER_SLOOP',
+    ] as BuildableVesselType[]).map((type) => {
+      const cost = VESSEL_BLUEPRINTS[type].costSats;
       const Icon = UNIT_ICON[type];
       return {
         key: type,
-        label: UNIT_SPEC[type].label,
-        description: UNIT_SPEC[type].description,
+        label: UNIT_BLUEPRINTS[type].label,
+        description: UNIT_BLUEPRINTS[type].description,
         cost,
         affordable: game.economy.treasurySats >= cost,
         active: selectedItem === type,
@@ -153,7 +159,7 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
   const { stage } = props;
   return (
     <div
-      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-slate-700/60 bg-slate-950/85 shadow-2xl backdrop-blur-md transition-[height] duration-200 ease-out ${STAGE_HEIGHT[stage]}`}
+      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-[#486273] bg-[#24333C]/95 shadow-2xl backdrop-blur-md transition-[height] duration-200 ease-out ${STAGE_HEIGHT[stage]}`}
     >
       <DrawerHandle {...props} />
       {stage !== 'peek' && <DangerBanners game={props.game} />}
@@ -166,7 +172,7 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
   );
 }
 
-function DrawerHandle({ stage, onStageChange, game, secondsLeft, gazetteFlashing, onOpenGazette }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
+function DrawerHandle({ stage, onStageChange, game, secondsLeft, gazetteFlashUntil, onOpenGazette, campaignTurns }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
   const track = useRef<{ id: number; startY: number; stage: TrayStage } | null>(null);
 
   const step = (dir: 1 | -1) =>
@@ -204,22 +210,27 @@ function DrawerHandle({ stage, onStageChange, game, secondsLeft, gazetteFlashing
 
   return (
     <div
-      className="flex h-11 w-full shrink-0 touch-none select-none items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-900/90 px-4"
+      className="flex h-11 w-full shrink-0 touch-none select-none items-center justify-between gap-3 border-b border-[#486273]/70 bg-[#2E4250]/90 px-4"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* Zone 1 — identity: crest + round counter */}
+      {/* Zone 1 — identity: crest + inline temporal group with dispatch */}
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-terra shadow-inset" aria-hidden>
           <Flag className="h-3.5 w-3.5 text-parchment" />
         </span>
         <span className="hidden font-display text-[11px] font-bold tracking-wide text-parchment md:block">Isle of Red</span>
-        <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold text-foam/90">
-          <Hourglass className="h-3.5 w-3.5 text-foam/70" aria-hidden /> Year 1781 · Turn {game.turn}
-          <NewspaperButton flashing={gazetteFlashing} onOpen={onOpenGazette} />
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold text-foam/90">
+          <Hourglass className="h-3.5 w-3.5 text-foam/70" aria-hidden />
+          <span className="font-semibold text-amber-200/90">Year {BASE_YEAR + game.turn}</span>
+          <NewspaperButton flashUntil={gazetteFlashUntil} onOpen={onOpenGazette} />
+          <span className="text-foam/50" aria-hidden>•</span>
+          <span className="font-medium text-foam/80">
+            Turn {game.turn}/{campaignTurns}
+          </span>
+        </div>
         <span
           className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] font-bold ${
             secondsLeft <= 10 ? 'bg-danger/20 text-danger' : 'bg-abyss/60 text-ok'
@@ -232,7 +243,7 @@ function DrawerHandle({ stage, onStageChange, game, secondsLeft, gazetteFlashing
 
       {/* Zone 2 — tactile drag handle, centered */}
       <div className="flex min-w-0 flex-1 justify-center">
-        <div className="h-1.5 w-14 cursor-pointer rounded-full bg-slate-600 transition-colors hover:bg-slate-400" />
+        <div className="h-1.5 w-14 cursor-pointer rounded-full bg-[#CBD5E1]/40 transition-colors hover:bg-[#CBD5E1]/70" />
       </div>
 
       {/* Zone 3 — economy + controls, right-justified */}
@@ -249,7 +260,7 @@ function DrawerHandle({ stage, onStageChange, game, secondsLeft, gazetteFlashing
           type="button"
           aria-label={stage === 'expanded' ? 'Collapse command deck' : 'Expand command deck'}
           onClick={() => step(stage === 'expanded' ? -1 : 1)}
-          className="rounded p-1 text-foam/80 transition-colors hover:bg-slate-800 hover:text-parchment"
+          className="rounded p-1 text-[#CBD5E1]/90 transition-colors hover:bg-[#486273]/50 hover:text-[#F8FAFC]"
         >
           {stage === 'expanded' ? <ChevronDown className="h-5 w-5" aria-hidden /> : <ChevronUp className="h-5 w-5" aria-hidden />}
         </button>
@@ -264,7 +275,8 @@ function formatClock(total: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function NewspaperButton({ flashing, onOpen }: { flashing: boolean; onOpen: () => void }) {
+function NewspaperButton({ flashUntil, onOpen }: { flashUntil: number; onOpen: () => void }) {
+  const flashing = Date.now() < flashUntil;
   return (
     <button
       type="button"
@@ -276,7 +288,7 @@ function NewspaperButton({ flashing, onOpen }: { flashing: boolean; onOpen: () =
         onOpen();
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      className={`pointer-events-auto relative z-20 rounded p-0.5 text-foam/80 transition-colors hover:bg-slate-800 hover:text-parchment ${
+      className={`pointer-events-auto relative z-20 rounded p-0.5 text-[#CBD5E1]/90 transition-colors hover:bg-[#486273]/50 hover:text-amber-200 ${
         flashing ? 'animate-pulse bg-amber-500/30 text-amber-300 ring-2 ring-amber-400' : ''
       }`}
     >
