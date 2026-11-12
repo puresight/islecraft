@@ -10,6 +10,7 @@ export type SpriteType =
   | 'FISH_SHOAL'
   | 'SQUALL'
   | 'TEMPEST'
+  | 'HURRICANE'
   | 'CORSAIR_MUTINEER';
 
 export type SpriteFaction = 'P1' | 'P2';
@@ -33,8 +34,10 @@ function pathStroke(ctx: CanvasRenderingContext2D, lineWidth: number) {
 }
 
 /**
- * Draws a vector sprite. (x, y) is the top-left of a square size×size box;
- * callers center that box inside the target tile.
+ * Draws a vector sprite. (x, y) is the top-left of the sprite box; for weather
+ * footprints `size` is the full box width and `sizeH` the full box height, so
+ * painters can scale to multi-tile extents. Callers center single-tile sprites
+ * in the target tile.
  */
 export function renderSprite(
   ctx: CanvasRenderingContext2D,
@@ -43,9 +46,10 @@ export function renderSprite(
   y: number,
   size: number,
   options: SpriteOptions = {},
+  sizeH: number = size,
 ): void {
   const cx = x + size / 2;
-  const cy = y + size / 2;
+  const cy = y + sizeH / 2;
   const s = size;
 
   ctx.save();
@@ -81,10 +85,13 @@ export function renderSprite(
       drawFishShoal(ctx, cx, cy, s);
       break;
     case 'SQUALL':
-      drawSquall(ctx, cx, cy, s);
+      drawSquall(ctx, cx, cy, s, sizeH);
       break;
     case 'TEMPEST':
-      drawTempest(ctx, cx, cy, s);
+      drawTempest(ctx, cx, cy, s, sizeH);
+      break;
+    case 'HURRICANE':
+      drawHurricane(ctx, cx, cy, s, sizeH);
       break;
     case 'CORSAIR_MUTINEER':
       drawMutineer(ctx, cx, cy, s);
@@ -421,44 +428,119 @@ function drawFishShoal(ctx: CanvasRenderingContext2D, cx: number, cy: number, s:
   fishShape(ctx, cx - s * 0.04, cy + s * 0.1, s, true);
 }
 
-function drawSquall(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) {
-  // Soft puffy cloud
+/** Squall: 1x2 box (s = width = one cell, sizeH = two cells tall). */
+function drawSquall(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, sizeH: number) {
+  const top = cy - sizeH / 2;
+  const cellH = sizeH / 2;
+  const cloudCy = top + cellH / 2;
+  // Soft puffy cloud canopy in the upper tile
   ctx.fillStyle = '#E2E8F0';
   ctx.globalAlpha = 0.9;
   ctx.beginPath();
-  ctx.arc(cx - s * 0.14, cy - s * 0.04, s * 0.14, 0, Math.PI * 2);
-  ctx.arc(cx + s * 0.02, cy - s * 0.1, s * 0.18, 0, Math.PI * 2);
-  ctx.arc(cx + s * 0.18, cy - s * 0.02, s * 0.13, 0, Math.PI * 2);
+  ctx.arc(cx - s * 0.18, cloudCy - s * 0.04, s * 0.15, 0, Math.PI * 2);
+  ctx.arc(cx, cloudCy - s * 0.1, s * 0.19, 0, Math.PI * 2);
+  ctx.arc(cx + s * 0.19, cloudCy - s * 0.03, s * 0.14, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
-  // Three faint diagonal rain streaks
+  // Three faint diagonal rain streaks descending into the lower tile
   ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
   ctx.lineWidth = Math.max(1, s * 0.025);
-  [-0.14, 0, 0.14].forEach((ox) => {
+  [-0.2, 0, 0.2].forEach((ox) => {
     ctx.beginPath();
-    ctx.moveTo(cx + ox * s, cy + s * 0.14);
-    ctx.lineTo(cx + ox * s - s * 0.05, cy + s * 0.3);
+    ctx.moveTo(cx + ox * s, top + cellH * 0.75);
+    ctx.lineTo(cx + ox * s - s * 0.08, top + sizeH * 0.95);
     ctx.stroke();
   });
 }
 
-function drawTempest(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) {
-  // Tight swirling cyan-grey vortex with an eye
-  ctx.strokeStyle = '#9FB8C4';
-  ctx.lineWidth = Math.max(1.5, s * 0.07);
-  ctx.beginPath();
-  for (let a = 0; a < Math.PI * 4; a += 0.25) {
-    const r = s * 0.05 + (a / (Math.PI * 4)) * s * 0.26;
-    const px = cx + Math.cos(a) * r;
-    const py = cy + Math.sin(a) * r;
-    if (a === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+/** Tempest spanning the full 2x2 footprint (s = one cell). */
+function drawTempest(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, sizeH: number) {
+  const half = sizeH / 2;
+  // Overlapping translucent dark storm clouds spanning all four squares
+  ctx.fillStyle = 'rgba(71, 85, 105, 0.55)';
+  [
+    [-0.5, -0.45, 0.42],
+    [0.3, -0.55, 0.5],
+    [-0.15, 0.1, 0.55],
+    [0.55, 0.25, 0.38],
+    [-0.6, 0.35, 0.34],
+  ].forEach(([ox, oy, r]) => {
+    ctx.beginPath();
+    ctx.arc(cx + ox * s, cy + oy * half, r * s, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  // Angled rain bands
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+  ctx.lineWidth = Math.max(1, s * 0.03);
+  [-0.55, -0.25, 0.1, 0.4].forEach((ox) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + ox * s, cy - half * 0.2);
+    ctx.lineTo(cx + ox * s - s * 0.3, cy + half * 0.9);
+    ctx.stroke();
+  });
+  // Subtle lightning flash in a random quadrant-ish position
+  const flash = 0.35 + 0.35 * Math.sin(performance.now() / 260 + cx * 3);
+  if (flash > 0.5) {
+    ctx.strokeStyle = `rgba(253, 224, 71, ${flash})`;
+    ctx.lineWidth = Math.max(1.5, s * 0.05);
+    const lx = cx + s * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(lx, cy - half * 0.8);
+    ctx.lineTo(lx - s * 0.12, cy - half * 0.1);
+    ctx.lineTo(lx + s * 0.06, cy - half * 0.04);
+    ctx.lineTo(lx - s * 0.08, cy + half * 0.9);
+    ctx.stroke();
   }
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(226, 232, 240, 0.5)';
+}
+
+/** Cartographic hurricane spanning the full footprint (s = cell width, sizeH = box height). */
+function drawHurricane(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, sizeH: number) {
+  const R = Math.min(s, sizeH / 2); // half-extent of the 2x2 box
+  const flash = 0.25 + 0.2 * Math.sin(performance.now() / 400 + cx);
+
+  // Translucent storm shroud across all four squares
+  ctx.fillStyle = `rgba(51, 65, 85, ${flash})`;
   ctx.beginPath();
-  ctx.arc(cx, cy, s * 0.05, 0, Math.PI * 2);
+  ctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2);
   ctx.fill();
+
+  // Rotating 18th-century spiral arms (cartographic engraving style)
+  const spin = performance.now() / 2600;
+  for (let arm = 0; arm < 2; arm++) {
+    ctx.strokeStyle = arm === 0 ? '#F1E5C8' : 'rgba(241, 229, 200, 0.55)';
+    ctx.lineWidth = Math.max(1.5, R * 0.09);
+    ctx.beginPath();
+    for (let a = 0; a < Math.PI * 2.6; a += 0.12) {
+      const t = a + arm * Math.PI + spin;
+      const r = R * (0.18 + (a / (Math.PI * 2.6)) * 0.78);
+      const px = cx + Math.cos(t) * r;
+      const py = cy + Math.sin(t) * r;
+      if (a === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Clear central eye
+  ctx.fillStyle = 'rgba(226, 232, 240, 0.25)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(241, 229, 200, 0.7)';
+  ctx.lineWidth = Math.max(1, R * 0.04);
+  ctx.stroke();
+
+  // Crimson/brass danger ring
+  ctx.strokeStyle = '#C84630';
+  ctx.lineWidth = Math.max(1.5, R * 0.06);
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.92, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#E5A93C';
+  ctx.lineWidth = Math.max(1, R * 0.03);
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.8, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 function drawMutineer(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) {

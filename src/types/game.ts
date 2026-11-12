@@ -20,6 +20,7 @@ export type UnitType =
   | 'PRIVATEER_SLOOP'
   | 'SQUALL'
   | 'TEMPEST'
+  | 'HURRICANE'
   | 'FISH_SHOAL'
   | 'ROGUE_GALLEON'
   | 'CORSAIR_MUTINEER';

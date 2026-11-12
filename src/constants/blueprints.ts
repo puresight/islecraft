@@ -1,4 +1,5 @@
 import type { BuildingType, UnitType } from '@/types/game';
+import type { Footprint, SeaEntityType, WeatherType } from '@/types/entities';
 
 /**
  * Single declarative registry of every placed item's stats. Costs, labels and
@@ -125,7 +126,62 @@ export const UNIT_BLUEPRINTS: Record<UnitType, UnitBlueprint> = {
     label: 'Corsair Mutineer',
     description: 'Rabble roused by unrest — quell them with a Coastal Bastion or lose a building.',
   },
+  HURRICANE: {
+    label: 'Hurricane',
+    description: 'A spinning maelstrom — sight it early and clear the lanes.',
+  },
 };
+
+export interface WeatherBlueprint {
+  label: string;
+  description: string;
+  /** Footprint in grid cells; (x, y) anchors the top-left cell. */
+  footprint: Footprint;
+  /** Heartbeat ticks between drift moves. */
+  driftTicks: number;
+  /** Per-tick chance to sink each vessel caught inside the footprint. */
+  sinkChance: number;
+  /** Per-tick chance to raze each unfortified land structure inside the footprint. */
+  destroyChance: number;
+  /** Waters plantations covered by the footprint. */
+  waters: boolean;
+}
+
+export const WEATHER_BLUEPRINTS: Record<WeatherType, WeatherBlueprint> = {
+  SQUALL: {
+    label: 'Squall',
+    description: 'A narrow rain band that waters the plantations it crosses.',
+    footprint: { w: 1, h: 2 },
+    driftTicks: 3,
+    sinkChance: 0,
+    destroyChance: 0,
+    waters: true,
+  },
+  TEMPEST: {
+    label: 'Tempest',
+    description: 'A towering gale that waters crops and founders loose vessels.',
+    footprint: { w: 2, h: 2 },
+    driftTicks: 2,
+    sinkChance: 0.4,
+    destroyChance: 0,
+    waters: true,
+  },
+  HURRICANE: {
+    label: 'Hurricane',
+    description: 'A spinning maelstrom that shatters vessels and unsheltered shores.',
+    footprint: { w: 2, h: 2 },
+    driftTicks: 1,
+    sinkChance: 0.8,
+    destroyChance: 0.35,
+    waters: false,
+  },
+};
+
+/** Footprint for any sea entity; non-weather entities occupy a single cell. */
+export function entityFootprint(type: SeaEntityType): Footprint {
+  const weather = WEATHER_BLUEPRINTS[type as WeatherType];
+  return weather ? weather.footprint : { w: 1, h: 1 };
+}
 
 export function isBuildableVessel(type: UnitType): type is BuildableVesselType {
   return (BUILDABLE_VESSELS as readonly UnitType[]).includes(type);

@@ -63,10 +63,13 @@ function tooltipFor(
   if (entity) {
     switch (entity.type) {
       case 'SQUALL':
-        lines.push('Squall (Waters crops)');
+        lines.push('Squall (Waters crops across 2 tiles)');
         break;
       case 'TEMPEST':
-        lines.push('Tempest (Dangerous gale)');
+        lines.push('Tempest (Waters crops, may sink vessels across 4 tiles)');
+        break;
+      case 'HURRICANE':
+        lines.push('Hurricane (Shatters vessels and unsheltered shores across 4 tiles)');
         break;
       case 'FISH_SHOAL':
         lines.push('Fish Shoal (50 Food available)');
@@ -437,15 +440,23 @@ export function GameBoard({
           { faction: u.faction === 'rival' ? 'P2' : 'P1' },
         );
       });
-    dynamicRef.current.forEach((e) =>
+    dynamicRef.current.forEach((e) => {
+      if (e.type === 'SQUALL' || e.type === 'TEMPEST' || e.type === 'HURRICANE') {
+        const px = e.x * cellW;
+        const py = e.y * cellH;
+        const w = e.footprint.w * cellW;
+        const h = e.footprint.h * cellH;
+        renderSprite(ctx, e.type, px, py, w, {}, h);
+        return;
+      }
       renderSprite(
         ctx,
         e.type,
         e.x * cellW + (cellW - spriteSize) / 2,
         e.y * cellH + (cellH - spriteSize) / 2,
         spriteSize,
-      ),
-    );
+      );
+    });
 
     const now = performance.now();
     effectsRef.current.forEach((fx) => {

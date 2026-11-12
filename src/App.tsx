@@ -310,12 +310,15 @@ export default function App() {
     void runSettlementRef.current?.();
   }, []);
 
+  const wateredKeysRef = useRef<Set<string>>(new Set());
+
   async function runSettlement() {
     const current = gameRef.current;
     if (!current || busy || current.phase !== 'playing') return;
     setBusy(true);
     try {
-      const audit = calculateTurnAudit(current);
+      const audit = calculateTurnAudit(current, { wateredPlantationKeys: wateredKeysRef.current });
+      wateredKeysRef.current = new Set();
 
       let buildings = current.buildings;
       let units = current.units;
@@ -495,6 +498,12 @@ export default function App() {
     if (outcome.consumedEntityIds.length > 0) {
       setEntities((prev) => prev.filter((e) => !outcome.consumedEntityIds.includes(e.id)));
     }
+    if (outcome.destroyedBuildingIds.length > 0) {
+      pushGame((state) => ({
+        ...state,
+        buildings: state.buildings.filter((b) => !outcome.destroyedBuildingIds.includes(b.id)),
+      }));
+    }
     outcome.flashTiles.forEach((f) => pushEffect({ x: f.col, y: f.row, kind: 'flash', color: '#F59E0B' }));
     outcome.harvestedTiles.forEach((h) => pushEffect({ x: h.col, y: h.row, kind: 'text', text: `+${SHOAL_HARVEST_FOOD} Food`, color: '#4E8752' }));
     outcome.notices.forEach((n) => pushToast(n.text, n.kind));
@@ -505,6 +514,7 @@ export default function App() {
         economy: { ...state.economy, foodReserves: state.economy.foodReserves + outcome.foodBonus },
       }));
     }
+    wateredKeysRef.current = new Set([...wateredKeysRef.current, ...outcome.wateredPlantationKeys]);
   }
 
   const { secondsLeft, entities, setEntities, resetClock } = useSimulationLoop({
