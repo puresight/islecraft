@@ -74,6 +74,8 @@ export default function App() {
   const moveCredits = useRef(new Map<string, MoveCredit>());
   const chronicleRef = useRef<ChronicleEntry[]>([]);
   chronicleRef.current = chronicle;
+  const selectedItemRef = useRef(selectedItem);
+  selectedItemRef.current = selectedItem;
 
   const commit = useGamePersistence(gameRef);
 
@@ -278,7 +280,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (selectedVesselRef.current || selectedItem) {
+      if (selectedVesselRef.current || selectedItemRef.current) {
         handleCancelSelection();
         return;
       }
@@ -287,7 +289,6 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenMode]);
 
   useEffect(() => {
@@ -297,9 +298,11 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [screenMode]);
 
+  const runSettlementRef = useRef<() => Promise<void>>();
+  runSettlementRef.current = runSettlement;
+
   const handleTurnExpire = useCallback(() => {
-    void runSettlement();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void runSettlementRef.current?.();
   }, []);
 
   async function runSettlement() {
