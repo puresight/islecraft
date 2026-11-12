@@ -53,7 +53,11 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<BuildingType | UnitType | null>(null);
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
   const [gazetteAudit, setGazetteAudit] = useState<TurnAuditReport | null>(null);
+  const gazetteAuditRef = useRef(gazetteAudit);
+  gazetteAuditRef.current = gazetteAudit;
   const [gazetteOpen, setGazetteOpen] = useState(false);
+  const gazetteOpenRef = useRef(gazetteOpen);
+  gazetteOpenRef.current = gazetteOpen;
   const [gazetteFlashUntil, setGazetteFlashUntil] = useState(0);
   const [isHiddenPaused, setIsHiddenPaused] = useState(false);
   const [retroStats, setRetroStats] = useState<RetrospectiveStats | null>(null);
@@ -285,7 +289,8 @@ export default function App() {
         return;
       }
       if (screenMode !== 'PLAYING') return;
-      setGazetteOpen((prev) => !prev);
+      if (gazetteOpenRef.current) closeGazette();
+      else openGazette();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -458,6 +463,9 @@ export default function App() {
   }
 
   function openGazette() {
+    if (!gazetteAuditRef.current && gameRef.current) {
+      setGazetteAudit(calculateTurnAudit(gameRef.current));
+    }
     setGazetteOpen(true);
     setGazetteFlashUntil(0);
   }
