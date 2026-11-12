@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { Wind, CloudLightning, CloudRain, Sun, Sprout, Sailboat, ScrollText, ChevronUp, ChevronDown, Flag, Hourglass, Coins, Users, Wheat, Flame, type LucideIcon } from 'lucide-react';
+import { useCallback, useRef } from 'react';
+import { Wind, CloudLightning, CloudRain, Sun, Sprout, Sailboat, ScrollText, ChevronUp, ChevronDown, Flag, Hourglass, Coins, Users, Wheat, Flame, Newspaper, type LucideIcon } from 'lucide-react';
 import { BuildingType, GameStateSnapshot, UnitType, BUILDING_SPEC, UNIT_SPEC } from '@/types/game';
 import { BUILDING_ICON, UNIT_ICON } from '@/game/entityIcons';
 import { clampPercent, formatSats } from '@/utils/format';
@@ -31,6 +31,9 @@ interface CommandConsoleProps {
   busy: boolean;
   onEndTurn: () => void;
   secondsLeft: number;
+  /** Timestamp until which the newspaper button flashes (fresh dispatch ready). */
+  gazetteFlashing: boolean;
+  onOpenGazette: () => void;
 }
 
 interface CardItem {
@@ -163,7 +166,7 @@ export function CommandConsole(props: CommandConsoleProps & { stage: TrayStage; 
   );
 }
 
-function DrawerHandle({ stage, onStageChange, game, secondsLeft }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
+function DrawerHandle({ stage, onStageChange, game, secondsLeft, gazetteFlashing, onOpenGazette }: CommandConsoleProps & { stage: TrayStage; onStageChange: (s: TrayStage) => void }) {
   const track = useRef<{ id: number; startY: number; stage: TrayStage } | null>(null);
 
   const step = (dir: 1 | -1) =>
@@ -215,6 +218,7 @@ function DrawerHandle({ stage, onStageChange, game, secondsLeft }: CommandConsol
         <span className="hidden font-display text-[11px] font-bold tracking-wide text-parchment md:block">Isle of Red</span>
         <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-semibold text-foam/90">
           <Hourglass className="h-3.5 w-3.5 text-foam/70" aria-hidden /> Year 1781 · Turn {game.turn}
+          <NewspaperButton flashing={gazetteFlashing} onOpen={onOpenGazette} />
         </span>
         <span
           className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] font-bold ${
@@ -258,6 +262,33 @@ function formatClock(total: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function NewspaperButton({ flashing, onOpen }: { flashing: boolean; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Open Settlement Report"
+      title="View Settlement Dispatch (Esc)"
+      onClick={(e) => {
+        // Keep the tray's pointer-drag handler from swallowing the tap
+        e.stopPropagation();
+        onOpen();
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={`pointer-events-auto relative z-20 rounded p-0.5 text-foam/80 transition-colors hover:bg-slate-800 hover:text-parchment ${
+        flashing ? 'animate-pulse bg-amber-500/30 text-amber-300 ring-2 ring-amber-400' : ''
+      }`}
+    >
+      <Newspaper className="h-4 w-4" aria-hidden />
+      {flashing && (
+        <span
+          className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-400 shadow-[0_0_6px_2px_rgba(251,191,36,0.6)]"
+          aria-hidden
+        />
+      )}
+    </button>
+  );
 }
 
 function HeaderMetric({

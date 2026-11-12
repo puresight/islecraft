@@ -15,7 +15,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import type { CommandTab } from '@/components/commandTabs';
 import { canPlaceItem, isBuildingType, itemCost } from '@/utils/placementRules';
-import { DynamicEntity } from '@/types/entities';
 import { ToastManager, useToasts } from '@/components/ToastManager';
 import { TurnGazetteModal } from '@/components/TurnGazetteModal';
 import { VictoryModal, rankForScore, scoreForCampaign, type VictoryStats } from '@/components/VictoryModal';
@@ -51,6 +50,7 @@ export default function App() {
   const [game, setGame] = useState<GameStateSnapshot | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [trayStage, setTrayStage] = useState<TrayStage>('default');
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [effects, setEffects] = useState<BoardEffect[]>([]);
   const { toasts, pushToast } = useToasts();
   const compactLandscape = useCompactLandscape();
@@ -58,6 +58,15 @@ export default function App() {
   gameRef.current = game;
   const selectedVesselRef = useRef(selectedVesselId);
   selectedVesselRef.current = selectedVesselId;
+  const selectedItemRef = useRef(selectedItem);
+  selectedItemRef.current = selectedItem;
+  const isReportOpenRef = useRef(isReportOpen);
+  isReportOpenRef.current = isReportOpen;
+  const gazetteAuditRef = useRef(gazetteAudit);
+  gazetteAuditRef.current = gazetteAudit;
+
+  const openGazette = useCallback(() => setIsReportOpen(true), []);
+  const closeGazette = useCallback(() => setIsReportOpen(false), []);
   const moveCredits = useRef(new Map<string, MoveCredit>());
 
   useEffect(() => {
@@ -241,14 +250,25 @@ export default function App() {
     return true;
   }
 
-  // Esc cancels vessel selection
+  // Esc closes the dispatch preview, else cancels selection, else opens the report
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedVesselId(null);
+      if (e.key !== 'Escape') return;
+      if (isReportOpenRef.current) {
+        closeGazette();
+        return;
+      }
+      if (gazetteAuditRef.current) return;
+      if (selectedVesselRef.current || selectedItemRef.current) {
+        setSelectedVesselId(null);
+        setSelectedItem(null);
+        return;
+      }
+      openGazette();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [closeGazette, openGazette]);
 
   const handleTurnExpire = useCallback(() => {
     const current = gameRef.current;
@@ -317,7 +337,7 @@ export default function App() {
 
   const { secondsLeft, entities, setEntities, resetClock } = useSimulationLoop({
     game,
-    paused: gazetteAudit !== null,
+    paused: gazetteAudit !== null || isReportOpen,
     onTurnExpire: handleTurnExpire,
     enabled: isHydrated && game?.phase === 'playing' && !busy,
     onHeartbeat: handleHeartbeat,
@@ -413,6 +433,7 @@ export default function App() {
     setGame(next);
     gameRef.current = next;
     setGazetteAudit(null);
+    setIsReportOpen(false);
 
     // --- Campaign climax: no Turn 13 — open the Ledger of History ---
     if (current.turn >= CAMPAIGN_TURNS) {
@@ -464,6 +485,7 @@ export default function App() {
     gameRef.current = fresh;
     setVictoryStats(null);
     setGazetteAudit(null);
+    setIsReportOpen(false);
     setSelectedItem(null);
     setSelectedVesselId(null);
     setTab('construct');
@@ -490,13 +512,25 @@ export default function App() {
     onSelectItem: setSelectedItem,
     busy,
     onEndTurn: handleEndTurn,
+    onOpenGazette: openGazette,
+    gazetteFlashing: gazetteAudit !== null,
   };
 
   return (
     <div className="flex h-full w-screen flex-col overflow-hidden bg-charcoal pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)]">
       <PortraitOverlay />
       <ToastManager toasts={toasts} />
-      {gazetteAudit && <TurnGazetteModal audit={gazetteAudit} onRatify={handleRatify} />}
+      {gazetteAudit ? (
+        <TurnGazetteModal audit={gazetteAudit} year={1780 + game.turn} onRatify={handleRatify} />
+      ) : isReportOpen && game.phase === 'playing' ? (
+        <TurnGazetteModal
+          audit={calculateTurnAudit(game)}
+          year={1780 + game.turn}
+          preview
+          onRatify={closeGazette}
+          onClose={closeGazette}
+        />
+      ) : null}
       {victoryStats && <VictoryModal stats={victoryStats} turnsSurvived={CAMPAIGN_TURNS} onNewVoyage={handleNewVoyage} />}
       {compactLandscape && <Hud turn={game.turn} economy={game.economy} />}
 

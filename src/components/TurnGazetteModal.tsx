@@ -1,9 +1,15 @@
-import { AlertTriangle, Coins, Home, Scale, Sprout, Users } from 'lucide-react';
+import { AlertTriangle, Coins, Home, Scale, Sprout, Users, X } from 'lucide-react';
 import type { TurnAuditReport } from '@/utils/economyEngine';
 
 interface TurnGazetteModalProps {
   audit: TurnAuditReport;
+  /** Dynamic campaign year shown in the masthead (base year + current turn). */
+  year: number;
+  /** Preview mode: mid-turn report with no ratification side effects. */
+  preview?: boolean;
   onRatify: () => void;
+  /** Optional explicit close affordance (preview mode). */
+  onClose?: () => void;
 }
 
 const STABILITY_STYLES: Record<TurnAuditReport['stability'], { text: string; note: string; border: string }> = {
@@ -30,23 +36,38 @@ function SectionHeading({ icon, children }: { icon: React.ReactNode; children: R
   );
 }
 
-export function TurnGazetteModal({ audit, onRatify }: TurnGazetteModalProps) {
+export function TurnGazetteModal({ audit, year, preview = false, onRatify, onClose }: TurnGazetteModalProps) {
   const stability = STABILITY_STYLES[audit.stability];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#16262E]/80 p-3 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-[#16262E]/80 p-3 backdrop-blur-sm"
+      onClick={preview && onClose ? onClose : undefined}
+      role="presentation"
+    >
       <div
         className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-lg border-2 border-[#B85D3D]/60 bg-[#D8C596] shadow-panel"
         role="dialog"
         aria-modal="true"
-        aria-label={`Colonial Dispatch, turn ${audit.turn} settlement report`}
+        aria-label={preview ? `Colonial Dispatch preview, year ${year}, turn ${audit.turn}` : `Colonial Dispatch, turn ${audit.turn} settlement report`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <header className="border-b-2 border-[#B85D3D]/40 px-5 pt-4 pb-3 text-center">
+        <header className="relative border-b-2 border-[#B85D3D]/40 px-5 pt-4 pb-3 text-center">
+          {preview && onClose && (
+            <button
+              type="button"
+              aria-label="Close Settlement Report"
+              onClick={onClose}
+              className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded text-abyss/70 transition-colors hover:bg-abyss/10 hover:text-abyss"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          )}
           <p className="font-display text-[10px] font-bold uppercase tracking-[0.35em] text-[#B85D3D]">
-            Colonial Dispatch
+            Colonial Dispatch · Year {year}
           </p>
           <h2 className="mt-1 font-display text-lg font-bold text-abyss">
-            Turn {audit.turn} Settlement Report
+            Turn {audit.turn} Settlement Report{preview ? ' (Preview)' : ''}
           </h2>
         </header>
 
@@ -97,6 +118,12 @@ export function TurnGazetteModal({ audit, onRatify }: TurnGazetteModalProps) {
               </ul>
             </section>
           )}
+
+          {preview && (
+            <p className="border-t border-abyss/20 pt-3 text-center text-[11px] italic text-abyss/60">
+              Mid-turn preview — projections only. The official audit prints at turn's end.
+            </p>
+          )}
         </div>
 
         <footer className="border-t border-abyss/20 px-5 pb-4 pt-3">
@@ -105,7 +132,7 @@ export function TurnGazetteModal({ audit, onRatify }: TurnGazetteModalProps) {
             onClick={onRatify}
             className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-[#B85D3D] px-5 text-sm font-bold uppercase tracking-widest text-parchment shadow-panel transition-transform hover:brightness-110 active:scale-[0.98]"
           >
-            <Home className="h-4 w-4" aria-hidden /> Ratify & Resume Command
+            <Home className="h-4 w-4" aria-hidden /> {preview ? 'Resume Command' : 'Ratify & Resume Command'}
           </button>
         </footer>
       </div>

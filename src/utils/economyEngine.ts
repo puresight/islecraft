@@ -1,4 +1,4 @@
-import { BuildingType, GameStateSnapshot, TerrainType } from '@/types/game';
+import { BuildingType, GameStateSnapshot } from '@/types/game';
 import { INITIAL_MAP, TileType } from '@/constants/mapData';
 
 export interface TurnAuditReport {
@@ -42,9 +42,6 @@ function stabilityFor(unrest: number): TurnAuditReport['stability'] {
   }
   return 'Mutinous';
 }
-
-const chebyshev = (ax: number, ay: number, bx: number, by: number) =>
-  Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
 function findMutineerSpawnTile(state: GameStateSnapshot): { col: number; row: number } | null {
   const candidates: Array<{ col: number; row: number }> = [];
